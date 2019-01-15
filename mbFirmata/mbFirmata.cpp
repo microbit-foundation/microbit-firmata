@@ -138,8 +138,8 @@ static void reportFirmwareVersion() {
 	// Send firmware version message.
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
-	send2Bytes(0x02, 0x06); // Firmata version 2.6
-	sendStringData("micro:bit DAL Firmata");
+	send2Bytes(0, 1); // MBFirmata version 0.1
+	sendStringData("micro:bit Firmata");
 	sendByte(SYSEX_END);
 }
 
