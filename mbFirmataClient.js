@@ -291,8 +291,278 @@ console.log('receivedEvent', sourceID, eventID);
 			this.SYSEX_END]);
 	}
 
-} // end class TetheredMicrobit
+} // end class MicrobitFirmataClient
+
+
 
 // for testing...
-mb = new TetheredMicrobit();
+mb = new MicrobitFirmataClient();
 mb.connect();
+
+
+
+
+
+/**
+ * Top-level controller for BBC micro:bit board.  Attempts to connect when constructed with
+ * a SerialPort, and reports ready/error/disconnect by emitting events.  In turn, initializes
+ * member component controllers for different board components.
+ *
+ * @extends EventEmitter from NodeJS (available in browser code via webpack's node-libs-browser)
+ *   @see https://nodejs.org/api/events.html#events_class_eventemitter
+ *   @see https://github.com/webpack/node-libs-browser
+ * @see http://usejsdoc.org if any annotations aren't clear
+ */
+class MicroBit extends EventEmitter {
+  /**
+   * @param {SerialPort|ChromeSerialPort} serialport
+   *   @see https://serialport.io/docs/en/api-serialport
+   *   @see https://github.com/code-dot-org/code-dot-org/blob/staging/apps/src/lib/kits/maker/CircuitPlaygroundBoard.js#L270-L290
+   */
+  constructor(mbFirmataClient) {
+
+    /** @member {LedMatrix} */
+    this.ledMatrix = new LedMatrix(mbFirmataClient);
+
+    /** @member {MBButton} */
+    this.buttonA = new MBButton(mbFirmataClient, 1);
+
+    /** @member {MBButton} */
+    this.buttonB = new MBButton(mbFirmataClient, 2);
+
+    /** @member {Accelerometer} */
+    this.accelerometer = new Accelerometer(mbFirmataClient);
+
+    /** @member {LightSensor} */
+    this.lightSensor = new LightSensor(mbFirmataClient);
+
+    /** @member {Array.<TouchPin>} */
+    this.touchPins = new Array();
+    for (var i = 0; i < 3; i++) this.touchPins.push(new TouchPin(mbFirmataClient, i));
+  }
+
+  /**
+   * @event MicroBit#ready
+   * Emits after construction if connection to the board is successful.
+   */
+
+  /**
+   * @event MicroBit#error
+   * Emits when a connection attempt fails. (Include error details?)
+   */
+
+  /**
+   * @event MicroBit#disconnect
+   * Emits when a board disconnect is detected.
+   */
+}
+
+
+class LedMatrix {
+  constructor(mbFirmataClient) {
+	this.mbFirmataClient= mbFirmataClient;
+  }
+
+  /**
+   * Was not included in the spec but this seemed potentially useful to students.
+   * @param {number} x (range 0..4)
+   * @param {number} y (range 0..4)
+   * @return {number} 0 or 1
+   */
+  getLed(x, y) {}
+
+  /**
+   * Turn an individual LED on or off.
+   * @param {number} x (range 0..4)
+   * @param {number} y (range 0..4)
+   * @param {number} state 0 or 1
+   */
+  setLed(x, y, state) {}
+
+  /**
+   * Set the state of all display LEDs at once.
+   * @param {Array.<Array.<number>>} leds
+   * @example
+   *   microBit.ledMatrix.setDisplay([
+   *     [0, 0, 1, 0, 0],
+   *     [0, 1, 0, 0, 0],
+   *     [0, 0, 1, 0, 0],
+   *     [0, 0, 0, 1, 0],
+   *     [0, 0, 1, 0, 0],
+   *   ]);
+   */
+  setDisplay(leds) {}
+
+  /**
+   * Show a string on the display (animated marquee).
+   * @param {string} text
+   * @param {number?} [interval]
+   * @see https://makecode.microbit.org/reference/basic/show-string
+   */
+  showString(text, interval) {}
+}
+
+
+class Button extends EventEmitter {
+  constructor(mbFirmataClient, buttonID) {
+	this.mbFirmataClient = mbFirmataClient;
+	this.buttonID = buttonID;
+	mbFirmataClient.onFirmataEvent(this.handleButtonEvent.bind(this));
+
+    /**
+     * Whether the button is currently down.
+     * @member {boolean}
+     * @readonly
+     */
+    this.isPressed = false;
+  }
+
+  /**
+   * @event Button#down
+   */
+
+  /**
+   * @event Button#up
+   */
+
+  handleButtonEvent(sourceID, eventID) {
+	if (sourceID != buttonID) return; // event is not for this button; ignore it
+  }
+}
+
+
+class Accelerometer extends EventEmitter {
+  constructor(mbFirmataClient) {
+	this.mbFirmataClient= mbFirmataClient;
+	mbFirmataClient.onFirmataEvent(this.handleAccelerometerEvent.bind(this));
+
+    /** @member {number} */
+    this.x = 0;
+    /** @member {number} */
+    this.y = 0;
+    /** @member {number} */
+    this.z = 0;
+  }
+
+  /**
+   * Begin streaming accelerometer data.
+   */
+  enable() {}
+
+  /**
+   * Stop streaming accelerometer data.
+   */
+  disable() {}
+
+  /**
+   * Called when new accelerometer data is received.
+   */
+  update(x, y, z) {
+	this.x = x;
+	this.y = y;
+	this.z = z;
+  }
+
+  /**
+   * @event Accelerometer#change
+   * @type {object}
+   * @property {number} x
+   * @property {number} y
+   * @property {number} z
+   */
+
+  /**
+   * @event Accelerometer#shake
+   */
+
+  /**
+   * Accelerometer event received from micro:bit.
+   */
+  handleAccelerometerEvent(eventID) {
+	const MICROBIT_ID_GESTURE = 27;
+
+	if (sourceID != MICROBIT_ID_GESTURE) return; // event is not for this button; ignore it
+  }
+}
+
+
+class LightSensor extends EventEmitter {
+  constructor(mbFirmataClient) {
+	this.mbFirmataClient= mbFirmataClient;
+
+    /** @member {array} the last N samples to be averaged */
+	this.sampleValues = new Array(3).fill(0);
+
+    /** @member {number} How much the value must change by to trigger a change event */
+    this.threshold = 5;
+
+     /** @member {number} How much the value must change by to trigger a change event */
+    this.lastScaledValue = 0;
+ }
+
+  /**
+   * Begin streaming light sensor data.
+   */
+  enable() {}
+
+  /**
+   * Stop streaming light sensor data.
+   */
+  disable() {}
+
+  /**
+   * Get the average value of the light sensor in scaled to the given range.
+   * @param {number} min minimum value of output range
+   * @param {number} max minimum value of output range
+   *   Open question: What's a reasonable maximum here?
+   *   Open question: How do we communicate about maximum resolution / reasonable minimum?
+   * @return {number} average value
+   */
+  getScaledValue(min, max) {
+	var total = 0;
+	for (var i = 0; i < this.sampleValues.length; i++) {
+		total += this.sampleValues[i];
+	}
+	var normalizedAverage = (total / this.sampleValues.length) / 255;
+	return min + (normalizedAverage * (max - min));
+  }
+
+  /**
+   * Sets the number of past light sensor values to include in the average.
+   * @param {number} n
+   */
+  setAverageCount(n) {
+	if (n < 1) return; // must have at least one sample
+	if (n > this.sampleValues.length) { // shrink if needed
+		this.sampleValues = this.sampleValues.slice(0, n);
+	}
+	while (this.sampleValues.length < n) { // grow if needed
+		this.sampleValues = this.sampleValues.slice(0, n);
+	}
+  }
+
+  /**
+   * @event LightSensor#change
+   * @type {number} scaled light sensor value
+   */
+
+}
+
+
+class TouchPin extends EventEmitter {
+  constructor(mbFirmataClient, pinNum) {
+	this.mbFirmataClient= mbFirmataClient;
+	this.pinNum = pinNum;
+
+    /** @member {boolean} Whether the touch pin is "down" */
+    this.isPressed = false;
+  }
+
+  /**
+   * @event TouchPin#down
+   */
+
+  /**
+   * @event TouchPin#up
+   */
+}
