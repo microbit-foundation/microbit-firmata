@@ -7,10 +7,11 @@
   [x] keep track of sensor/pin state
 */
 
-var serialport = require('serialport');
+const serialport = require('serialport');
+const EventEmitter = require('events');
 
-class TetheredMicrobit {
-	constructor(portName) {
+class MicrobitFirmataClient {
+	constructor() {
 		this.addConstants();
 		this.myPort = null;
 		this.inbuf = new Uint8Array(100);
@@ -115,7 +116,7 @@ class TetheredMicrobit {
 			if (skipBytes < 0) {
 				// command at cmdStart is incomplete: remove processed messages and exit
 				if (0 == cmdStart) return; // cmd is already at start of inbuf
-				var remainingBytes = (this.inbufCount - cmdStart) + 1;
+				var remainingBytes = this.inbufCount - cmdStart;
 				this.inbuf.copyWithin(0, cmdStart, cmdStart + remainingBytes);
 				this.inbufCount = remainingBytes;
 				return;
@@ -191,7 +192,6 @@ class TetheredMicrobit {
 
 	receivedFirmataVersion(major, minor) {
 		this.firmataVersion = 'Firmata ' + major + '.' + minor;
-console.log(this.firmataVersion);
 	}
 
 	receivedFirmwareVersion(sysexStart, argBytes) {
@@ -203,7 +203,6 @@ console.log(this.firmataVersion);
 		}
 		var firmwareName = new TextDecoder().decode(Buffer.from(utf8Bytes));
 		this.firmwareVersion = firmwareName + ' ' + major + '.' + minor;
-console.log(this.firmwareVersion);
 	}
 
 	receivedDigitalUpdate(chan, pinMask) {
@@ -217,7 +216,7 @@ console.log('receivedDigitalUpdate', chan, pinMask);
 	}
 
 	receivedAnalogUpdate(chan, value) {
-console.log('analog[' + chan + ']', value);
+console.log('A' + chan + ': ', value);
 		this.analogChannel[chan] = value;
 	}
 
