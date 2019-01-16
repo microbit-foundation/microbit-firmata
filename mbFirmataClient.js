@@ -24,6 +24,7 @@ class MicrobitFirmataClient {
 		this.isScrolling = false;
 		this.digitalInput = new Array(21).fill(false);
 		this.analogChannel = new Array(16).fill(0);
+		this.eventListeners = new Array();
 	}
 
 	addConstants() {
@@ -227,6 +228,10 @@ console.log('A' + chan + ': ', value);
 console.log('receivedEvent', sourceID, eventID);
 	}
 
+	addFirmataEventListener(handler) {
+		eventListeners.push(handler);
+	}
+
 	// Version Commands
 
 	getFirmataVersion() {
@@ -359,6 +364,7 @@ class MicroBit extends EventEmitter {
    *   @see https://github.com/code-dot-org/code-dot-org/blob/staging/apps/src/lib/kits/maker/CircuitPlaygroundBoard.js#L270-L290
    */
   constructor(mbFirmataClient) {
+	super();
 
     /** @member {LedMatrix} */
     this.ledMatrix = new LedMatrix(mbFirmataClient);
@@ -442,11 +448,12 @@ class LedMatrix {
 }
 
 
-class Button extends EventEmitter {
+class MBButton extends EventEmitter {
   constructor(mbFirmataClient, buttonID) {
+	super();
 	this.mbFirmataClient = mbFirmataClient;
 	this.buttonID = buttonID;
-	mbFirmataClient.onFirmataEvent(this.handleButtonEvent.bind(this));
+	mbFirmataClient.addFirmataEventListener(this.handleFirmataEvent.bind(this));
 
     /**
      * Whether the button is currently down.
@@ -464,16 +471,17 @@ class Button extends EventEmitter {
    * @event Button#up
    */
 
-  handleButtonEvent(sourceID, eventID) {
-	if (sourceID != buttonID) return; // event is not for this button; ignore it
-  }
+    handleFirmataEvent(sourceID, eventID) {
+		if (sourceID != buttonID) return; // event is not for this button; ignore it
+	}
 }
 
 
 class Accelerometer extends EventEmitter {
   constructor(mbFirmataClient) {
+	super();
 	this.mbFirmataClient= mbFirmataClient;
-	mbFirmataClient.onFirmataEvent(this.handleAccelerometerEvent.bind(this));
+	mbFirmataClient.addFirmataEventListener(this.handleFirmataEvent.bind(this));
 
     /** @member {number} */
     this.x = 0;
@@ -517,16 +525,17 @@ class Accelerometer extends EventEmitter {
   /**
    * Accelerometer event received from micro:bit.
    */
-  handleAccelerometerEvent(eventID) {
+  handleFirmataEvent(sourceID, eventID) {
 	const MICROBIT_ID_GESTURE = 27;
 
-	if (sourceID != MICROBIT_ID_GESTURE) return; // event is not for this button; ignore it
+	if (sourceID != MICROBIT_ID_GESTURE) return;
   }
 }
 
 
 class LightSensor extends EventEmitter {
   constructor(mbFirmataClient) {
+	super();
 	this.mbFirmataClient= mbFirmataClient;
 
     /** @member {array} the last N samples to be averaged */
@@ -590,6 +599,7 @@ class LightSensor extends EventEmitter {
 
 class TouchPin extends EventEmitter {
   constructor(mbFirmataClient, pinNum) {
+	super();
 	this.mbFirmataClient= mbFirmataClient;
 	this.pinNum = pinNum;
 
