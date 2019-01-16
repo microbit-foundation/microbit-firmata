@@ -57,7 +57,7 @@ SOFTWARE.
 #define MB_DISPLAY_SHOW			0x02
 #define MB_DISPLAY_PLOT			0x03
 #define MB_SCROLL_STRING		0x04
-#define MB_SCROLL_NUMBER		0x05
+#define MB_SCROLL_INTEGER		0x05
 // 0x06-0x0C reserved for additional micro:bit commands
 #define MB_REPORT_EVENT			0x0D
 #define MB_DEBUG_STRING			0x0E

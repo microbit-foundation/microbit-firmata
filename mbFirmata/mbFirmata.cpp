@@ -36,6 +36,9 @@ SOFTWARE.
 static uint8_t inbuf[IN_BUF_SIZE];
 static int inbufCount = 0;
 
+#define MAX_SCROLLING_STRING 300 // room for 100 3-byte UTF-8 character (probably overkill)
+static char scrollingString[MAX_SCROLLING_STRING];
+
 #define UNKNOWN_PIN_STATE 55555
 
 #define PIN_COUNT 21
@@ -333,10 +336,16 @@ void display_clear(int sysexStart, int argBytes) {
 
 void display_show(int sysexStart, int argBytes) {
 	if (argBytes < 26) return;
+	int isGrayscale = inbuf[sysexStart + 1];
+	if (isGrayscale) {
+		uBit.display.setDisplayMode(DISPLAY_MODE_GREYSCALE);
+	} else {
+		uBit.display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE);
+	}
 	for (int y = 0; y < 5; y++) {
 		for (int x = 0; x < 5; x++) {
 			int i = (5 * y) + x;
-			int level = inbuf[sysexStart + i];
+			int level = inbuf[sysexStart + i + 2];
 			level = (127 == level) ? 255 : (2 * level); // covert from 7 to 8 bit range
 			uBit.display.image.setPixelValue(x, y, level);
 		}
@@ -349,30 +358,38 @@ void display_plot(int sysexStart, int argBytes) {
 	int y = inbuf[sysexStart + 2];
 	int level = inbuf[sysexStart + 3];
 	level = (127 == level) ? 255 : (2 * level); // covert from 7 to 8 bit range
-	uBit.display.setDisplayMode(DISPLAY_MODE_GREYSCALE);
+	if ((level > 0) && (level < 255)) {
+		uBit.display.setDisplayMode(DISPLAY_MODE_GREYSCALE);
+	}
 	uBit.display.image.setPixelValue(x, y, level);
 }
 
-static char scrollBuf[101];
-
 void scrollString(int sysexStart, int argBytes) {
-	if (argBytes < 2) return;
+	if (argBytes < 1) return;
 	int scrollSpeed = inbuf[sysexStart + 1];
 	uBit.display.stopAnimation();
-	uBit.display.scrollAsync("Testing...", scrollSpeed);
+	int utf8Bytecount = (argBytes - 1) / 2;
+	if (utf8Bytecount > MAX_SCROLLING_STRING) utf8Bytecount = MAX_SCROLLING_STRING;
+	int srcIndex = sysexStart + 2;
+	for (int i = 0; i < utf8Bytecount; i ++) {
+		scrollingString[i] = inbuf[srcIndex] | (inbuf[srcIndex + 1] << 7);
+		srcIndex += 2;
+	}
+	scrollingString[utf8Bytecount] = 0; // null terminator
+	uBit.display.scrollAsync(scrollingString, scrollSpeed);
 }
 
 void scrollNumber(int sysexStart, int argBytes) {
 	if (argBytes < 2) return;
 	int scrollSpeed = inbuf[sysexStart + 1];
 	int n = inbuf[sysexStart + 2];
-	n |= inbuf[sysexStart + 2] << 7;
-	n |= inbuf[sysexStart + 3] << 14;
-	n |= inbuf[sysexStart + 4] << 21;
-	n |= inbuf[sysexStart + 5] << 28;
+	n |= inbuf[sysexStart + 3] << 7;
+	n |= inbuf[sysexStart + 4] << 14;
+	n |= inbuf[sysexStart + 5] << 21;
+	n |= inbuf[sysexStart + 6] << 28;
 	uBit.display.stopAnimation();
-	sprintf(scrollBuf, "%d", n);
-	uBit.display.scrollAsync(scrollBuf, scrollSpeed);
+	sprintf(scrollingString, "%d", n);
+	uBit.display.scrollAsync(scrollingString, scrollSpeed);
 }
 
 #endif
@@ -394,7 +411,7 @@ static void dispatchSysexCommand(int sysexStart, int argBytes) {
 	case MB_SCROLL_STRING:
 		scrollString(sysexStart, argBytes);
 		break;
-	case MB_SCROLL_NUMBER:
+	case MB_SCROLL_INTEGER:
 		scrollNumber(sysexStart, argBytes);
 		break;
 	case ANALOG_MAPPING_QUERY:
@@ -498,8 +515,7 @@ static void processCommands() {
 static void streamDigitalPins() {
 	// Send updates for any ports that have changed.
 
-return;
-	// xxx send an update only when a pin is a digital input and its value has changed
+	// xxx todo: send an update when a pin is a digital input and its value has changed (send 0 for now)
 	for (int port = 0; port < 3; port++) {
 		if (isStreamingPort[port]) {
 			send3Bytes(DIGITAL_UPDATE | port, 0, 0);
@@ -512,7 +528,7 @@ static int analogChannelValue(uint8_t chan) {
 	// For the micro:bit, sensors such as the accelerometer are mapped to analog channels.
 
 	if (chan > 15) return 0;
-//	if ((chan < 6) && (ANALOG_INPUT != firmataPinMode[chan])) return 0;
+//	if ((chan < 6) && (ANALOG_INPUT != firmataPinMode[chan])) return 0; // xxx
 
 #ifdef ARDUINO_BBC_MICROBIT
 	if (chan < 6) {
@@ -541,11 +557,9 @@ static int analogChannelValue(uint8_t chan) {
 	if (10 == chan) return uBit.accelerometer.getZ() / 100; // accelerometer z
 	if (11 == chan) return uBit.display.readLightLevel(); // light sensor
 	if (12 == chan) return uBit.thermometer.getTemperature(); // temperature sensor
-/*
 	if (13 == chan) return uBit.compass.getX(); // compass x
 	if (14 == chan) return uBit.compass.getY(); // compass y
 	if (15 == chan) return uBit.compass.getZ(); // compass z
-*/
 #endif
 	return 0;
 }
@@ -553,8 +567,6 @@ static int analogChannelValue(uint8_t chan) {
 static void streamSensors() {
 	// Send updates for all currently streaming sensor channels if samplingInterval msecs
 	// have elapsed since the last updates were sent.
-
-char s[200]; // xxx
 
 	int elapsed = now() - lastSampleTime;
 	if ((elapsed >= 0) && (elapsed < samplingInterval)) return;
@@ -588,8 +600,13 @@ static void onEvent(MicroBitEvent evt) {
 }
 
 static void registerEventListeners() {
+
+	uBit.messageBus.listen(MICROBIT_ID_DISPLAY, MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE, onEvent);
 	uBit.messageBus.listen(MICROBIT_ID_BUTTON_A, MICROBIT_BUTTON_EVT_CLICK, onEvent);
 	uBit.messageBus.listen(MICROBIT_ID_BUTTON_B, MICROBIT_BUTTON_EVT_CLICK, onEvent);
+	for (int i = 1; i <= 11; i++) { // accelerometer gesture events 1-11
+		uBit.messageBus.listen(MICROBIT_ID_GESTURE, i, onEvent);
+	}
 }
 
 #endif
@@ -597,10 +614,7 @@ static void registerEventListeners() {
 // Testing (temporary xxx)
 
 static void initBuf() {
-//	uint8_t data[] = { 0x80, 1, 2, 0x90, 3, 4, 0xA0, 5, 0xB0, 0xC0, 6, 7, 8, 9,
-//		0xD1, 10, 11, 0xE2, 12, 13, 14, 0x87, 42, 99 };
-// 	uint8_t data[] = { 0xFF, 0xF4, 0, 0, 0xF5, 0, 0, 0xFF, 0xF9, 0, 0, 0xC1, 1, 0xD2, 1, 0xFF };
-	uint8_t data[] = { 0xF4, 1, DIGITAL_OUTPUT, 0x90, 0, 0  };
+ 	uint8_t data[] = { 0xFF, 0xF4, 0, 0, 0xF5, 0, 0, 0xFF, 0xF9, 0, 0, 0xC1, 1, 0xD2, 1, 0xFF };
 	memmove(inbuf, data, sizeof(data));
 	inbufCount = sizeof(data);
 }

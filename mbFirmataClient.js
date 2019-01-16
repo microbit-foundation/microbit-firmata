@@ -1,9 +1,10 @@
 /* Tasks:
-  [ ] display commands
+  [ ] finish display commands
   [ ] event handler registration
   [ ] event dispatching
-  [ ] discover port for board
-  [ ] provide API for sensor/pin state
+  [ ] auto-discover serial port for board
+  [ ] request firmata and firmware versions on connection open
+  [ ] integrate with Brad's classes
   [x] keep track of sensor/pin state
 */
 
@@ -17,7 +18,7 @@ class MicrobitFirmataClient {
 		this.inbuf = new Uint8Array(100);
 		this.inbufCount = 0;
 
-		this.firmatVersion = '';
+		this.firmataVersion = '';
 		this.firmwareVersion = '';
 
 		this.isScrolling = false;
@@ -53,7 +54,7 @@ class MicrobitFirmataClient {
 		this.MB_DISPLAY_SHOW			= 0x02
 		this.MB_DISPLAY_PLOT			= 0x03
 		this.MB_SCROLL_STRING			= 0x04
-		this.MB_SCROLL_NUMBER			= 0x05
+		this.MB_SCROLL_INTEGER			= 0x05
 		// 0x06-0x0C reserved for additional micro:bit messages
 		this.MB_REPORT_EVENT			= 0x0D
 		this.MB_DEBUG_STRING			= 0x0E
@@ -191,7 +192,7 @@ class MicrobitFirmataClient {
 	// Handling Messages from the micro:bit
 
 	receivedFirmataVersion(major, minor) {
-		this.firmataVersion = 'Firmata ' + major + '.' + minor;
+		this.firmataVersion = 'Firmata Protocol ' + major + '.' + minor;
 	}
 
 	receivedFirmwareVersion(sysexStart, argBytes) {
@@ -244,10 +245,57 @@ console.log('receivedEvent', sourceID, eventID);
 		this.myPort.write([this.SYSEX_START, this.MB_DISPLAY_CLEAR, this.SYSEX_END]);
 	}
 
+	displayShow(useGrayscale, pixels) {
+		// Display the given 5x5 image on the display. If useGrayscale is true, pixel values
+		// are brightness values in the range 0-255. Otherwise, a zero pixel value means off
+		// and >0 means on. Pixels is an Array of 5-element Arrays.
+
+		this.myPort.write([this.SYSEX_START, this.MB_DISPLAY_SHOW]);
+		this.myPort.write([useGrayscale ? 1 : 0]);
+		for (var y = 0; y < 5; y++) {
+			for (var x = 0; x < 5; x++) {
+				var pix = pixels[y][x];
+				if (pix > 1) pix = pix / 2; // transmit as 7-bits
+				this.myPort.write([pix & 0x7F]);
+			}
+		}
+		this.myPort.write([this.SYSEX_END]);
+	}
+
 	displayPlot(x, y, brightness) {
 		// Set the display pixel at x, y to the given brightness (0-255).
 
-		this.myPort.write([this.SYSEX_START, this.MB_DISPLAY_PLOT, x, y, brightness, this.SYSEX_END]);
+		this.myPort.write([this.SYSEX_START, this.MB_DISPLAY_PLOT,
+			x, y, (brightness / 2) & 0x7F,
+			this.SYSEX_END]);
+	}
+
+	scrollString(s, delay) {
+		// Scroll the given string across the display with the given delay.
+		// Omit the delay parameter to use the default scroll speed.
+		// The maximum string length is 100 characters.
+
+		if (null == delay) delay = 120;
+		if (s.length > 100) s = s.slice(0, 100);
+		var buf = new TextEncoder().encode(s);
+		this.myPort.write([this.SYSEX_START, this.MB_SCROLL_STRING, delay]);
+		for (var i = 0; i < buf.length; i++) {
+			var b = buf[i];
+			this.myPort.write([b & 0x7F, (b >> 7) & 0x7F]);
+		}
+		this.myPort.write([this.SYSEX_END]);
+	}
+
+	scrollNumber(n, delay) {
+		// Scroll the given 32-bit integer value across the display with the given delay.
+		// Omit the delay parameter to use the default scroll speed.
+		// Note: 32-bit integer is transmitted as five 7-bit data bytes.
+
+		if (null == delay) delay = 120;
+		this.myPort.write([this.SYSEX_START, this.MB_SCROLL_INTEGER,
+			delay,
+			n & 0x7F, (n >> 7) & 0x7F, (n >> 14) & 0x7F, (n >> 21) & 0x7F, (n >> 28) & 0x7F,
+			this.SYSEX_END]);
 	}
 
 	// Pin and Sensor Channel Control
@@ -292,15 +340,6 @@ console.log('receivedEvent', sourceID, eventID);
 	}
 
 } // end class MicrobitFirmataClient
-
-
-
-// for testing...
-mb = new MicrobitFirmataClient();
-mb.connect();
-
-
-
 
 
 /**
@@ -566,3 +605,9 @@ class TouchPin extends EventEmitter {
    * @event TouchPin#up
    */
 }
+
+// for testing...
+mb = new MicrobitFirmataClient();
+mb.connect();
+mb.scrollString("MB Firmata 0.1", 80)
+
