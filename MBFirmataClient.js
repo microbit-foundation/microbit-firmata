@@ -1,9 +1,11 @@
 /* Tasks:
   [ ] integrate with Brad's classes
-  [ ] event handler registration
-  [ ] event dispatching
-  [ ] auto-discover serial port for board
-  [ ] request firmata and firmware versions on connection open
+  [ ] event/update listener registration
+  [ ] event/update dispatching
+  [ ] add touch pin configuration command?
+  [ ] split into two modules: MicrobitFirmataClient and MicroBitBoard
+  [x] auto-discover serial port for board
+  [x] request firmata and firmware versions on connection open
   [x] finish display commands
   [x] keep track of sensor/pin state
 */
@@ -25,6 +27,7 @@ class MicrobitFirmataClient {
 		this.digitalInput = new Array(21).fill(false);
 		this.analogChannel = new Array(16).fill(0);
 		this.eventListeners = new Array();
+		this.updateListeners = new Array();
 	}
 
 	addConstants() {
@@ -71,12 +74,28 @@ class MicrobitFirmataClient {
 		this.INPUT_PULLDOWN				= 0x0F; // micro:bit extension; not defined by Firmata
 	}
 
-	// Connecting
+	// Connecting/Disconnecting
 
 	connect() {
 		// Search serial port list for a connected micro:bit and, if found, open that port.
 
-		this.connectToPort('/dev/cu.usbmodem1422'); // xxx placeholder until port search is implemented
+		serialport.list()
+		.then((ports) => {
+			for (var i = 0; i < ports.length; i++) {
+				var p = ports[i];
+				if ((p.vendorId == '0d28') && (p.productId == '0204')) {
+					return p.comName;
+				}
+			}
+			return null;
+		})
+		.then((portName) => {
+			if (portName) {
+				this.connectToPort(portName);
+			} else {
+				console.log("No micro:bit found; is your board plugged in?");
+			}
+		});
 	}
 
 	connectToPort(portName) {
@@ -92,11 +111,14 @@ class MicrobitFirmataClient {
 		}
 		this.myPort = new serialport(portName, { baudRate: 57600 }); // xxx placeholder
 		this.myPort.on('data', dataReceived.bind(this));
+		this.getFirmataVersion();
+		this.getFirmwareVersion();
+		console.log("MicrobitFirmataClient opened", portName);
 	}
 
 	disconnect() {
 		if (this.myPort) {
-			closeSerialPort(myPort);
+			this.myPort.close();
 			this.myPort = null;
 		}
 	}
@@ -218,18 +240,21 @@ console.log('receivedDigitalUpdate', chan, pinMask);
 	}
 
 	receivedAnalogUpdate(chan, value) {
+		if (value > 8191) value = value - 16384; // negative value (14-bits 2-completement)
 console.log('A' + chan + ': ', value);
 		this.analogChannel[chan] = value;
 	}
 
 	receivedEvent(sysexStart, argBytes) {
-		var sourceID = (this.inbuf[sysexStart + 2] << 7) | this.inbuf[sysexStart + 1];
-		var eventID = (this.inbuf[sysexStart + 4] << 7) | this.inbuf[sysexStart + 3];
+		var sourceID =
+			(this.inbuf[sysexStart + 3] << 14) |
+			(this.inbuf[sysexStart + 2] << 7) |
+			this.inbuf[sysexStart + 1];
+		var eventID =
+			(this.inbuf[sysexStart + 6] << 14) |
+			(this.inbuf[sysexStart + 5] << 7) |
+			this.inbuf[sysexStart + 4];
 console.log('receivedEvent', sourceID, eventID);
-	}
-
-	addFirmataEventListener(handler) {
-		eventListeners.push(handler);
 	}
 
 	// Version Commands
@@ -303,7 +328,7 @@ console.log('receivedEvent', sourceID, eventID);
 			this.SYSEX_END]);
 	}
 
-	// Pin and Sensor Channel Control
+	// Pin and Sensor Channel Commands
 
 	trackDigitalPin(pinNum) {
 		// Start tracking the given pin as a digital input.
@@ -342,6 +367,33 @@ console.log('receivedEvent', sourceID, eventID);
 		this.myPort.write([this.SYSEX_START, this.SAMPLING_INTERVAL,
 			samplingMSecs & 0x7F, (samplingMSecs >> 7) & 0x7F,
 			this.SYSEX_END]);
+	}
+
+	// Event/Update Listeners
+
+	addFirmataEventListener(eventListenerFunction) {
+		// Add a listener function to handle micro:bit DAL events.
+		// The function arguments are the sourceID and eventID (both numbers).
+
+		this.eventListeners.push(eventListenerFunction);
+	}
+
+	addFirmataUpdateListener(updateListenerFunction) {
+		// Add a listener function (with no arguments) called when sensor or pin updates arrive.
+
+		this.updateListeners.push(updateListenerFunction);
+	}
+
+	notifyEventListeners(sourceID, eventID) {
+		// Call all registered Firmata event listeners that the given DAL event has occurred.
+
+		for (f of this.eventListeners) f.call(sourceID, eventID);
+	}
+
+	notifyUpdateListeners(sourceID, eventID) {
+		// Call all registered Firmata event listeners that the given DAL event has occurred.
+
+		for (f of this.updateListeners) f.call();
 	}
 
 } // end class MicrobitFirmataClient
@@ -471,7 +523,18 @@ class MBButton extends EventEmitter {
 	*/
 
 	handleFirmataEvent(sourceID, eventID) {
-		if (sourceID != buttonID) return; // event is not for this button; ignore it
+		const MICROBIT_BUTTON_EVT_DOWN = 1;
+		const MICROBIT_BUTTON_EVT_UP = 2;
+		if (sourceID == buttonID) {
+			if (MICROBIT_BUTTON_EVT_DOWN == eventID) {
+				this.isPressed = true;
+				// raise Button#down
+			}
+			if (MICROBIT_BUTTON_EVT_UP == eventID) {
+				this.isPressed = false;
+				// raise Button#up
+			}
+		}
 	}
 }
 
@@ -492,20 +555,15 @@ class Accelerometer extends EventEmitter {
 	/**
 	* Begin streaming accelerometer data.
 	*/
-	enable() {}
+	enable() {
+		// xxx turn on accelerometer streaming
+	}
 
 	/**
 	* Stop streaming accelerometer data.
 	*/
-	disable() {}
-
-	/**
-	* Called when new accelerometer data is received.
-	*/
-	update(x, y, z) {
-		this.x = x;
-		this.y = y;
-		this.z = z;
+	disable() {
+		// xxx turn off accelerometer streaming
 	}
 
 	/**
@@ -521,12 +579,22 @@ class Accelerometer extends EventEmitter {
 	*/
 
 	/**
+	* Called when new accelerometer data is received.
+	*/
+	update(x, y, z) {
+		this.x = x;
+		this.y = y;
+		this.z = z;
+	}
+
+	/**
 	* Accelerometer event received from micro:bit.
 	*/
 	handleFirmataEvent(sourceID, eventID) {
 		const MICROBIT_ID_GESTURE = 27;
-
-		if (sourceID != MICROBIT_ID_GESTURE) return;
+		if (sourceID == MICROBIT_ID_GESTURE) {
+			// raise shake or freefall events
+		}
 	}
 }
 
@@ -614,5 +682,5 @@ class TouchPin extends EventEmitter {
 // for testing...
 mb = new MicrobitFirmataClient();
 mb.connect();
-mb.scrollString("MB Firmata 0.1", 80)
+//mb.scrollString("MB Firmata 0.2", 80)
 
