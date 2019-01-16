@@ -48,7 +48,7 @@ static uint16_t firmataPinState[PIN_COUNT];
 static uint8_t isStreamingChannel[16];
 static uint8_t isStreamingPort[16];
 
-static int samplingInterval = 50;
+static int samplingInterval = 100;
 static int lastSampleTime = 0;
 
 // Serial I/O
@@ -132,16 +132,16 @@ static void DEBUG(char *s) {
 // System Commands
 
 static void reportFirmataVersion() {
-	// Send Firmata version message.
+	// Send Firmata protocol version.
 
-	send3Bytes(FIRMATA_VERSION, 0x02, 0x06); // Firmata version 2.6
+	send3Bytes(FIRMATA_VERSION, 0x02, 0x06); // Firmata protocol 2.6
 }
 
 static void reportFirmwareVersion() {
-	// Send firmware version message.
+	// Send firmware version.
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
-	send2Bytes(0, 1); // MBFirmata version 0.1
+	send2Bytes(0, 2); // micro:bit Firmata firmware version (vs. the Firmata protocol version)
 	sendStringData("micro:bit Firmata");
 	sendByte(SYSEX_END);
 }
@@ -157,11 +157,7 @@ static void reportAnalogMapping() {
 
 	int i;
 	send2Bytes(SYSEX_START, ANALOG_MAPPING_RESPONSE);
-	for (i = 0; i <= 15; i++) sendByte(i); // xxx
-// 	for (i = 0; i <= 4; i++) sendByte(127); // xxx sendByte(i);
-// 	for (i = 5; i <= 9; i++) sendByte(127);
-// 	sendByte(10);
-// 	for (i = 11; i <= 15; i++) sendByte(127);
+	for (i = 0; i <= 15; i++) sendByte(i);
 	sendByte(SYSEX_END);
 }
 
@@ -180,7 +176,6 @@ static void reportPinCapabilities() {
 		} else if ((17 != p) && (18 != p)) { // pins 17-18 are 3.3v
 			send2Bytes(DIGITAL_INPUT, 1);
 			send2Bytes(DIGITAL_OUTPUT, 1);
-			send2Bytes(ANALOG_INPUT, 10); // xxx???
 			send2Bytes(PWM, 10);
 			send2Bytes(INPUT_PULLUP, 1);
 		}
@@ -528,7 +523,7 @@ static int analogChannelValue(uint8_t chan) {
 	// For the micro:bit, sensors such as the accelerometer are mapped to analog channels.
 
 	if (chan > 15) return 0;
-//	if ((chan < 6) && (ANALOG_INPUT != firmataPinMode[chan])) return 0; // xxx
+	if ((chan < 8) && (ANALOG_INPUT != firmataPinMode[chan])) return 0;
 
 #ifdef ARDUINO_BBC_MICROBIT
 	if (chan < 6) {
@@ -552,9 +547,9 @@ static int analogChannelValue(uint8_t chan) {
 	}
 	if (6 == chan) return 0;
 	if (7 == chan) return 0;
-	if (8 == chan) return uBit.accelerometer.getX() / 100; // accelerometer x
-	if (9 == chan) return uBit.accelerometer.getY() / 100; // accelerometer y
-	if (10 == chan) return uBit.accelerometer.getZ() / 100; // accelerometer z
+	if (8 == chan) return uBit.accelerometer.getX(); // accelerometer x
+	if (9 == chan) return uBit.accelerometer.getY(); // accelerometer y
+	if (10 == chan) return uBit.accelerometer.getZ(); // accelerometer z
 	if (11 == chan) return uBit.display.readLightLevel(); // light sensor
 	if (12 == chan) return uBit.thermometer.getTemperature(); // temperature sensor
 	if (13 == chan) return uBit.compass.getX(); // compass x
@@ -582,13 +577,6 @@ static void streamSensors() {
 
 // Events
 
-static void sendEvent(int source_id, int event_id) {
-	send2Bytes(SYSEX_START, MB_REPORT_EVENT);
-	send2Bytes(source_id & 0x7F, (source_id >> 7) & 0x7F);
-	send2Bytes(event_id & 0x7F, (event_id >> 7) & 0x7F);
-	sendByte(SYSEX_END);
-}
-
 #ifdef ARDUINO_BBC_MICROBIT
 
 static void registerEventListeners() { } // noop on Arduino
@@ -596,33 +584,32 @@ static void registerEventListeners() { } // noop on Arduino
 #else
 
 static void onEvent(MicroBitEvent evt) {
-	sendEvent(evt.source, evt.value);
+	int source_id = evt.source;
+	int event_id = evt.value;
+	send2Bytes(SYSEX_START, MB_REPORT_EVENT);
+	send3Bytes(source_id & 0x7F, (source_id >> 7) & 0x7F, (source_id >> 14) & 0x7F);
+	send3Bytes(event_id & 0x7F, (event_id >> 7) & 0x7F, (event_id >> 14) & 0x7F);
+	sendByte(SYSEX_END);
 }
 
 static void registerEventListeners() {
 
-	uBit.messageBus.listen(MICROBIT_ID_DISPLAY, MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE, onEvent);
-	uBit.messageBus.listen(MICROBIT_ID_BUTTON_A, MICROBIT_BUTTON_EVT_CLICK, onEvent);
-	uBit.messageBus.listen(MICROBIT_ID_BUTTON_B, MICROBIT_BUTTON_EVT_CLICK, onEvent);
-	for (int i = 1; i <= 11; i++) { // accelerometer gesture events 1-11
+	int i;
+	for (i = 1; i <= 6; i++) { // button events 1-6 for both buttons
+		uBit.messageBus.listen(MICROBIT_ID_BUTTON_A, i, onEvent);
+		uBit.messageBus.listen(MICROBIT_ID_BUTTON_B, i, onEvent);
+	}
+	for (i = 1; i <= 11; i++) { // accelerometer gesture events 1-11
 		uBit.messageBus.listen(MICROBIT_ID_GESTURE, i, onEvent);
 	}
+	uBit.messageBus.listen(MICROBIT_ID_DISPLAY, MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE, onEvent);
 }
 
 #endif
 
-// Testing (temporary xxx)
-
-static void initBuf() {
- 	uint8_t data[] = { 0xFF, 0xF4, 0, 0, 0xF5, 0, 0, 0xFF, 0xF9, 0, 0, 0xC1, 1, 0xD2, 1, 0xFF };
-	memmove(inbuf, data, sizeof(data));
-	inbufCount = sizeof(data);
-}
-
 // Entry Points
 
 void initFirmata() {
-//	initBuf();
 	systemReset();
 	registerEventListeners();
 }
