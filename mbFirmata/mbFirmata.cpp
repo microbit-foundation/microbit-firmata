@@ -141,7 +141,7 @@ static void reportFirmwareVersion() {
 	// Send firmware version.
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
-	send2Bytes(0, 3); // micro:bit Firmata firmware version (vs. the Firmata protocol version)
+	send2Bytes(0, 4); // micro:bit Firmata firmware version (vs. the Firmata protocol version)
 	sendStringData("micro:bit Firmata");
 	sendByte(SYSEX_END);
 }
