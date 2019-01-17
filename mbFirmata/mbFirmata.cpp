@@ -36,9 +36,8 @@ SOFTWARE.
 static uint8_t inbuf[IN_BUF_SIZE];
 static int inbufCount = 0;
 
-#define MAX_SCROLLING_STRING 300 // room for 100 3-byte UTF-8 character (probably overkill)
+#define MAX_SCROLLING_STRING 200 // room for 100 2-byte UTF-8 characters (probably overkill)
 static char scrollingString[MAX_SCROLLING_STRING];
-
 
 #define PIN_COUNT 21
 #define UNKNOWN_PIN_MODE 0x0E
@@ -192,7 +191,6 @@ static void reportPinCapabilities() {
 
 static void reportPinState(int pin) {
 	if ((pin < 0) || (pin >= PIN_COUNT)) return;
-	int mode = firmataPinMode[pin];
 	int state = firmataPinState[pin];
 	send2Bytes(SYSEX_START, PIN_STATE_RESPONSE);
 	send2Bytes(pin, firmataPinMode[pin]);
@@ -322,22 +320,22 @@ static void setSamplingInterval(int msecs) {
 
 #ifdef ARDUINO_BBC_MICROBIT
 
-void display_clear(int sysexStart, int argBytes) { }
-void display_show(int sysexStart, int argBytes) { }
-void display_plot(int sysexStart, int argBytes) { }
-void scrollString(int sysexStart, int argBytes) { }
-void scrollNumber(int sysexStart, int argBytes) { }
-void setTouchMode(int sysexStart, int argBytes) { }
+static void display_clear(int sysexStart, int argBytes) { }
+static void display_show(int sysexStart, int argBytes) { }
+static void display_plot(int sysexStart, int argBytes) { }
+static void scrollString(int sysexStart, int argBytes) { }
+static void scrollNumber(int sysexStart, int argBytes) { }
+static void setTouchMode(int sysexStart, int argBytes) { }
 }
 
 #else
 
-void display_clear(int sysexStart, int argBytes) {
+static void display_clear(int sysexStart, int argBytes) {
 	uBit.display.stopAnimation();
 	uBit.display.clear();
 }
 
-void display_show(int sysexStart, int argBytes) {
+static void display_show(int sysexStart, int argBytes) {
 	if (argBytes < 26) return;
 	int isGrayscale = inbuf[sysexStart + 1];
 	if (isGrayscale) {
@@ -355,7 +353,7 @@ void display_show(int sysexStart, int argBytes) {
 	}
 }
 
-void display_plot(int sysexStart, int argBytes) {
+static void display_plot(int sysexStart, int argBytes) {
 	if (argBytes < 3) return;
 	int x = inbuf[sysexStart + 1];
 	int y = inbuf[sysexStart + 2];
@@ -367,7 +365,7 @@ void display_plot(int sysexStart, int argBytes) {
 	uBit.display.image.setPixelValue(x, y, level);
 }
 
-void scrollString(int sysexStart, int argBytes) {
+static void scrollString(int sysexStart, int argBytes) {
 	if (argBytes < 1) return;
 	int scrollSpeed = inbuf[sysexStart + 1];
 	uBit.display.stopAnimation();
@@ -382,7 +380,7 @@ void scrollString(int sysexStart, int argBytes) {
 	uBit.display.scrollAsync(scrollingString, scrollSpeed);
 }
 
-void scrollNumber(int sysexStart, int argBytes) {
+static void scrollNumber(int sysexStart, int argBytes) {
 	if (argBytes < 2) return;
 	int scrollSpeed = inbuf[sysexStart + 1];
 	int n = inbuf[sysexStart + 2];
