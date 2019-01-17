@@ -58,7 +58,8 @@ SOFTWARE.
 #define MB_DISPLAY_PLOT			0x03
 #define MB_SCROLL_STRING		0x04
 #define MB_SCROLL_INTEGER		0x05
-// 0x06-0x0C reserved for additional micro:bit commands
+#define MB_SET_TOUCH_MODE		0x06
+// 0x07-0x0C reserved for additional micro:bit commands
 #define MB_REPORT_EVENT			0x0D
 #define MB_DEBUG_STRING			0x0E
 #define MB_EXTENDED_SYSEX		0x0F // can be used to add 128 additional micro:bit commands

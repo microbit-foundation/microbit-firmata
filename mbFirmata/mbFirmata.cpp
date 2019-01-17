@@ -327,6 +327,8 @@ void display_show(int sysexStart, int argBytes) { }
 void display_plot(int sysexStart, int argBytes) { }
 void scrollString(int sysexStart, int argBytes) { }
 void scrollNumber(int sysexStart, int argBytes) { }
+void setTouchMode(int sysexStart, int argBytes) { }
+}
 
 #else
 
@@ -393,6 +395,25 @@ void scrollNumber(int sysexStart, int argBytes) {
 	uBit.display.scrollAsync(scrollingString, scrollSpeed);
 }
 
+static void setTouchMode(int sysexStart, int argBytes) {
+	// Turn touch mode on/off for a pin. Touch mode is only supported for pins 0-2).
+	// When touch mode is on, the pin generates events as if it were a button.
+
+	if (argBytes < 2) return;
+	int pin = inbuf[sysexStart + 1];
+	int touchModeOn = (inbuf[sysexStart + 2] != 0);
+	if (pin < 3) {
+		if (touchModeOn) {
+			uBit.io.pin[pin].isTouched();
+		} else {
+			// Note: disableEvents() is a private method in the DAL. Thus, there does not seem
+			// to be any way to disable touch events once a pin has been put into touch mode
+			// (except via hardware reset, of course).
+			// uBit.io.pin[pin].disableEvents();
+		}
+	}
+}
+
 #endif
 
 // MIDI parsing
@@ -414,6 +435,9 @@ static void dispatchSysexCommand(int sysexStart, int argBytes) {
 		break;
 	case MB_SCROLL_INTEGER:
 		scrollNumber(sysexStart, argBytes);
+		break;
+	case MB_SET_TOUCH_MODE:
+		setTouchMode(sysexStart, argBytes);
 		break;
 	case ANALOG_MAPPING_QUERY:
 		reportAnalogMapping();
@@ -616,15 +640,19 @@ static void onEvent(MicroBitEvent evt) {
 }
 
 static void registerEventListeners() {
+	// button events
+	uBit.messageBus.listen(MICROBIT_ID_BUTTON_A, MICROBIT_EVT_ANY, onEvent);
+	uBit.messageBus.listen(MICROBIT_ID_BUTTON_B, MICROBIT_EVT_ANY, onEvent);
 
-	int i;
-	for (i = 1; i <= 6; i++) { // button events 1-6 for both buttons
-		uBit.messageBus.listen(MICROBIT_ID_BUTTON_A, i, onEvent);
-		uBit.messageBus.listen(MICROBIT_ID_BUTTON_B, i, onEvent);
-	}
-	for (i = 1; i <= 11; i++) { // accelerometer gesture events 1-11
-		uBit.messageBus.listen(MICROBIT_ID_GESTURE, i, onEvent);
-	}
+	// accelerometer gesture events (e.g. shake)
+	uBit.messageBus.listen(MICROBIT_ID_GESTURE, MICROBIT_EVT_ANY, onEvent);
+
+	// touch pin events
+	uBit.messageBus.listen(7, MICROBIT_EVT_ANY, onEvent);
+	uBit.messageBus.listen(8, MICROBIT_EVT_ANY, onEvent);
+	uBit.messageBus.listen(9, MICROBIT_EVT_ANY, onEvent);
+
+	// scrolling/animation complete event
 	uBit.messageBus.listen(MICROBIT_ID_DISPLAY, MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE, onEvent);
 }
 
