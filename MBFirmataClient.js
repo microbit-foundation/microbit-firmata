@@ -531,10 +531,10 @@ class LedMatrix {
 	* @param {number} n
 	* @param {number} [interval] (default: 120)
 	*/
-	showString(n, interval) {
+	showNumber(n, interval) {
 		if (null == interval) interval = 120;
 		this.isScrolling = true;
-		this.mbFirmataClient.scrollNumber(text, interval);
+		this.mbFirmataClient.scrollNumber(n, interval);
 	}
 
 	handleFirmataEvent(sourceID, eventID) {
