@@ -39,9 +39,10 @@ static int inbufCount = 0;
 #define MAX_SCROLLING_STRING 300 // room for 100 3-byte UTF-8 character (probably overkill)
 static char scrollingString[MAX_SCROLLING_STRING];
 
-#define UNKNOWN_PIN_STATE 55555
 
 #define PIN_COUNT 21
+#define UNKNOWN_PIN_MODE 0x0E
+#define UNKNOWN_PIN_STATE 55555
 static uint8_t firmataPinMode[PIN_COUNT];
 static uint16_t firmataPinState[PIN_COUNT];
 
@@ -141,12 +142,17 @@ static void reportFirmwareVersion() {
 	// Send firmware version.
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
-	send2Bytes(0, 2); // micro:bit Firmata firmware version (vs. the Firmata protocol version)
+	send2Bytes(0, 3); // micro:bit Firmata firmware version (vs. the Firmata protocol version)
 	sendStringData("micro:bit Firmata");
 	sendByte(SYSEX_END);
 }
 
 static void systemReset() {
+	memset(firmataPinMode, UNKNOWN_PIN_MODE, sizeof(firmataPinMode));
+	memset(firmataPinState, UNKNOWN_PIN_STATE, sizeof(firmataPinState));
+	memset(isStreamingChannel, false, sizeof(isStreamingChannel));
+	memset(isStreamingPort, false, sizeof(isStreamingPort));
+	samplingInterval = 100;
 	DEBUG("systemReset");
 }
 
@@ -508,12 +514,30 @@ static void processCommands() {
 }
 
 static void streamDigitalPins() {
-	// Send updates for any ports that have changed.
+	// Send an update for ports we are streaming if they include an input pin that has changed.
 
-	// xxx todo: send an update when a pin is a digital input and its value has changed (send 0 for now)
 	for (int port = 0; port < 3; port++) {
 		if (isStreamingPort[port]) {
-			send3Bytes(DIGITAL_UPDATE | port, 0, 0);
+			int portChanged = false;
+			int bitMask = 0;
+			for (int i = 0; i < 8; i++) {
+				int pin = (8 * port) + i;
+				if (pin < PIN_COUNT) {
+					int mode = firmataPinMode[pin];
+					if ((DIGITAL_INPUT == mode) ||
+						(INPUT_PULLUP == mode) ||
+						(INPUT_PULLDOWN == mode)) {
+							int oldState = firmataPinState[pin];
+							int newState = uBit.io.pin[pin].getDigitalValue();
+							if (newState != oldState) portChanged = true;
+							firmataPinState[pin] = newState;
+							if (newState) bitMask |= (1 << i);
+					}
+				}
+			}
+			if (portChanged) {
+				send3Bytes(DIGITAL_UPDATE | port, bitMask & 0x7F, (bitMask >> 7) & 0x7F);
+			}
 		}
 	}
 }
@@ -523,7 +547,6 @@ static int analogChannelValue(uint8_t chan) {
 	// For the micro:bit, sensors such as the accelerometer are mapped to analog channels.
 
 	if (chan > 15) return 0;
-	if ((chan < 8) && (ANALOG_INPUT != firmataPinMode[chan])) return 0;
 
 #ifdef ARDUINO_BBC_MICROBIT
 	if (chan < 6) {
@@ -552,9 +575,9 @@ static int analogChannelValue(uint8_t chan) {
 	if (10 == chan) return uBit.accelerometer.getZ(); // accelerometer z
 	if (11 == chan) return uBit.display.readLightLevel(); // light sensor
 	if (12 == chan) return uBit.thermometer.getTemperature(); // temperature sensor
-	if (13 == chan) return uBit.compass.getX(); // compass x
-	if (14 == chan) return uBit.compass.getY(); // compass y
-	if (15 == chan) return uBit.compass.getZ(); // compass z
+	if (13 == chan) return uBit.compass.getX() >> 5; // compass x
+	if (14 == chan) return uBit.compass.getY() >> 5; // compass y
+	if (15 == chan) return uBit.compass.getZ() >> 5; // compass z
 #endif
 	return 0;
 }
