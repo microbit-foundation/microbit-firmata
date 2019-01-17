@@ -1,8 +1,8 @@
 /* Tasks:
   [ ] test and debug
   [ ] light sensor averaging
-  [ ] add touch pin configuration command?
   [ ] split into two modules: MicrobitFirmataClient and MicroBitBoard
+  [x] add touch pin configuration command
   [x] integrate with Brad's classes
   [x] event/update listener registration
   [x] event/update dispatching
@@ -19,7 +19,7 @@ class MicrobitFirmataClient {
 	constructor() {
 		this.addConstants();
 		this.myPort = null;
-		this.inbuf = new Uint8Array(100);
+		this.inbuf = new Uint8Array(1000);
 		this.inbufCount = 0;
 
 		this.firmataVersion = '';
@@ -61,7 +61,8 @@ class MicrobitFirmataClient {
 		this.MB_DISPLAY_PLOT			= 0x03
 		this.MB_SCROLL_STRING			= 0x04
 		this.MB_SCROLL_INTEGER			= 0x05
-		// 0x06-0x0C reserved for additional micro:bit messages
+		this.MB_SET_TOUCH_MODE			= 0x06
+		// 0x07-0x0C reserved for additional micro:bit messages
 		this.MB_REPORT_EVENT			= 0x0D
 		this.MB_DEBUG_STRING			= 0x0E
 		this.MB_EXTENDED_SYSEX			= 0x0F; // allow for 128 additional micro:bit messages
@@ -93,17 +94,17 @@ class MicrobitFirmataClient {
 		})
 		.then((portName) => {
 			if (portName) {
-				this.connectToPort(portName);
+				// Attempt to open the serial port on the given port name.
+				// If this fails it will fail with an UnhandledPromiseRejectionWarning.
+				console.log("Opening", portName);
+				this.setSerialPort(new serialport(portName, { baudRate: 57600 }));
 			} else {
 				console.log("No micro:bit found; is your board plugged in?");
 			}
 		});
 	}
 
-	connectToPort(portName) {
-		// Attempt to open the serial port on the given port name.
-		// If this fails it will fail with an UnhandledPromiseRejectionWarning.
-
+	setSerialPort(port) {
 		function dataReceived(data) {
 			if ((this.inbufCount + data.length) < this.inbuf.length) {
 				this.inbuf.set(data, this.inbufCount);
@@ -111,15 +112,15 @@ class MicrobitFirmataClient {
 				this.processFirmatMessages();
 			}
 		}
-		this.myPort = new serialport(portName, { baudRate: 57600 });
+		this.myPort = port;
 		this.myPort.on('data', dataReceived.bind(this));
 		this.getFirmataVersion();
 		this.getFirmwareVersion();
-		console.log("MicrobitFirmataClient opened", portName);
 	}
 
 	disconnect() {
 		if (this.myPort) {
+			console.log("Closing", this.myPort.path);
 			this.myPort.close();
 			this.myPort = null;
 		}
@@ -232,12 +233,10 @@ class MicrobitFirmataClient {
 	}
 
 	receivedDigitalUpdate(chan, pinMask) {
-console.log('receivedDigitalUpdate', chan, pinMask);
 		var pinNum = 8 * chan;
 		for (var i = 0; i < 8; i++) {
 			var isOn = ((pinMask & (1 << i)) != 0);
 			if (pinNum < 21) this.digitalInput[pinNum] = isOn;
-console.log('  p' + pinNum + ': ' + isOn);
 			pinNum++;
 		}
 	}
@@ -379,6 +378,17 @@ console.log('receivedEvent', sourceID, eventID);
 			this.SYSEX_END]);
 	}
 
+	setTouchMode(pinNum, touchModeOn) {
+		// Turn touch mode on/off for a pin. Touch mode is only supported for pins 0-2).
+		// When touch mode is on, the pin generates events as if it were a button.
+
+		if ((pinNum < 0) || (pinNum > 2)) return;
+		var mode = touchModeOn ? 1 : 0;
+		this.myPort.write([this.SYSEX_START, this.MB_SET_TOUCH_MODE,
+			pinNum, mode,
+			this.SYSEX_END]);
+	}
+
 	// Event/Update Listeners
 
 	addFirmataEventListener(eventListenerFunction) {
@@ -454,7 +464,7 @@ class MicroBit extends EventEmitter {
 
 class LedMatrix {
 	constructor(mbFirmataClient) {
-		this.mbFirmataClient= mbFirmataClient;
+		this.mbFirmataClient = mbFirmataClient;
 		this.mbFirmataClient.addFirmataEventListener(this.handleFirmataEvent.bind(this));
 		this.isScrolling = false; // true while scrolling in progress
 		this.leds = [
@@ -731,7 +741,7 @@ class LightSensor extends EventEmitter {
 class TouchPin extends EventEmitter {
 	constructor(mbFirmataClient, pinNum) {
 		super();
-		this.mbFirmataClient= mbFirmataClient;
+		this.mbFirmataClient = mbFirmataClient;
 		this.mbFirmataClient.addFirmataEventListener(this.handleFirmataEvent.bind(this));
 		this.pinID = pinNum + 7; // pins 0-2 are touch event sources 7-9
 
@@ -743,14 +753,14 @@ class TouchPin extends EventEmitter {
 	* Enable touch events on this pin.
 	*/
 	enable() {
-		// xxx to do (needs new command to control touch mode)
+		this.mbFirmataClient.setTouchMode(this.pinID - 7, true);
 	}
 
 	/**
 	* Disable touch events on this pin.
 	*/
 	disable() {
-		// xxx to do (needs new command to control touch mode)
+		this.mbFirmataClient.setTouchMode(this.pinID - 7, false);
 	}
 
 	/**
