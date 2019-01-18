@@ -326,7 +326,6 @@ static void display_plot(int sysexStart, int argBytes) { }
 static void scrollString(int sysexStart, int argBytes) { }
 static void scrollNumber(int sysexStart, int argBytes) { }
 static void setTouchMode(int sysexStart, int argBytes) { }
-}
 
 #else
 
@@ -550,7 +549,11 @@ static void streamDigitalPins() {
 						(INPUT_PULLUP == mode) ||
 						(INPUT_PULLDOWN == mode)) {
 							int oldState = firmataPinState[pin];
-							int newState = uBit.io.pin[pin].getDigitalValue();
+							#ifdef ARDUINO_BBC_MICROBIT
+								int newState = digitalRead(pin);
+							#else
+								int newState = uBit.io.pin[pin].getDigitalValue();
+							#endif
 							if (newState != oldState) portChanged = true;
 							firmataPinState[pin] = newState;
 							if (newState) bitMask |= (1 << i);
