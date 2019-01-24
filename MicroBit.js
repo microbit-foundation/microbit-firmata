@@ -1,3 +1,7 @@
+/* To do:
+  [ ] light sensor averaging
+*/
+
 const serialport = require('serialport');
 const EventEmitter = require('events');
 

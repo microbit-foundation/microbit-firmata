@@ -1,8 +1,36 @@
-/* Tasks:
-  [ ] test and debug
-  [ ] light sensor averaging
-  [ ] split into two modules: MicrobitFirmataClient and MicroBitBoard
+/*
+MIT License
+
+Copyright (c) 2019 Micro:bit Educational Foundation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 */
+
+/* The MicrobitFirmataClient is a client for BBC micro:bit Firmata.
+ *
+ * Use connect() to connect to a board (serial ports are scanned for a connected micro:bit).
+ * or setSerialPort() to provide your own serial port.
+ *
+ * Entry points are provided to control the 5x5 LED display and digital/PWM output pins.
+ *
+ * Clients can listen for DAL events, digital pin changes, or analog channel updates.
+ */
 
 const serialport = require('serialport');
 const {TextEncoder, TextDecoder} = require('util');
@@ -408,4 +436,3 @@ class MicrobitFirmataClient {
 } // end class MicrobitFirmataClient
 
 module.exports = MicrobitFirmataClient;
-
