@@ -42,45 +42,118 @@ function moveCursorTo(line, col) {
 
 // Tests
 
+/* Each test is a class with:
+ *		description()	- returns a short string describing the test
+ *		constructor()	- initializes the test state
+ *		step()			- takes the next action of the test, checks for completion
+ *							and returns 'ok', 'fail', or '' (if test is still in progress)
+ */
+
 class TestX1 {
+	description() { return 'keyPressed'; }
 	constructor() {
 		keyPressed = false;
 	}
 	step() {
-		return keyPressed;
+		return keyPressed ? 'ok' : '';
 	}
 }
 
 class TestX2 {
+	description() { return 'timer callback'; }
 	constructor() {
 		this.phase = 0;
 		this.startTime = new Date().getTime();
-		console.log('TestX2 started at', this.startTime);
 	}
 	step() {
 		var secs = (new Date().getTime() - this.startTime) / 100;
 		secs = Math.trunc(secs);
 		if (secs > this.phase) {
 			this.phase = secs;
-			console.log(this.phase);
+//			console.log(this.phase);
 		}
-		return (this.phase >= 10);
+		return (this.phase >= 10) ? 'ok' : '';
 	}
 }
 
 class Test1 {
+	description() { return 'board connectivity'; }
 	constructor() {
 		this.startTime = new Date().getTime();
 		mb.firmataVersion = '';
 		mb.connect();
 	}
 	step() {
-		if (mb.firmataVersion.length > 0) return true; // got version
+		if (mb.firmataVersion.length > 0) return 'ok'; // got version
 		var msecs = new Date().getTime() - this.startTime;
-console.log(msecs);
 		if (msecs > 1000) {
-			console.log('No response from board; test failed!');
-			return true;
+			console.log('No response from board');
+			return 'fail';
+		}
+		return '';
+	}
+}
+
+class Test2 {
+	description() { return 'scroll string'; }
+	constructor() {
+		mb.scrollString('test', 80);
+	}
+	step() {
+		return (!mb.isScrolling) ? 'ok' : '';
+	}
+}
+
+class Test3 {
+	description() { return 'scroll number'; }
+	constructor() {
+		mb.scrollNumber(-123, 80);
+	}
+	step() {
+		return (!mb.isScrolling) ? 'ok' : '';
+	}
+}
+
+class Test4 {
+	description() { return 'sensor streaming'; }
+	constructor() {
+		keyPressed = false;
+		this.firstTime = true;
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			mb.setAnalogSamplingInterval(500);
+			for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
+			clearScreen();
+			moveCursorTo(18, 0);
+			console.log('Sensor streaming test. Press any key to exit.');
+		}
+		this.showSensors();
+		if (keyPressed) {
+			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
+			moveCursorTo(19, 0);
+			return 'ok';
+		}
+		return '';
+	}
+	showSensors() {
+		var channelNames = [
+			'pin 0', 'pin 1', 'pin 2', 'pin 3', 'pin 4', 'pin 5', '(unused)', '(unused)',
+			'accelerometer x', 'accelerometer y', 'accelerometer z',
+			'light sensor', 'temperature',
+			'magnetometer x', 'magnetometer y', 'magnetometer z'];
+
+		for (var i = 0; i < 16; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			process.stdout.write(i.toString());
+			moveCursorTo(line, 4);
+			process.stdout.write(channelNames[i]);
+			moveCursorTo(line, 22);
+			process.stdout.write('          '); // erase old value
+			moveCursorTo(line, 22);
+			process.stdout.write(mb.analogChannel[i].toString());
 		}
 	}
 }
@@ -91,15 +164,18 @@ function runTestList(testList) {
 		if (!currentTest) {
 			if (testList.length > 0) {
 				currentTest = new (testList.shift());
-				console.log('Starting:', currentTest.constructor.name);
+				console.log(currentTest.constructor.name + ': ' + currentTest.description());
 			} else {
 				console.log('No more tests');
 				process.exit();
 			}
 		}
-		var stop = currentTest.step();
-		if (stop) {
-			console.log('Finished:', currentTest.constructor.name);
+		var status = currentTest.step();
+		if ('ok' == status) {
+			console.log('ok');
+			currentTest = null;
+		} else if ('fail' == status) {
+			console.log('*** FAILED! ***');
 			currentTest = null;
 		}
 	}
@@ -117,8 +193,12 @@ function runAllTests() {
 	// Run entire test suite. New tests may be added to the list below.
 
 	runTestList([
-		TestX1,
-		TestX2
+// 		TestX1,
+// 		TestX2,
+		Test1,
+		Test2,
+		Test3,
+		Test4
 	]);
 }
 
@@ -133,6 +213,5 @@ function cursorTest() {
 	moveCursorTo(18, 0);
 }
 
-//runAllTests();
-runTest(Test1);
-
+runAllTests();
+//runTest(Test2);
