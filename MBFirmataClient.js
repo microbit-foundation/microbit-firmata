@@ -235,12 +235,13 @@ class MicrobitFirmataClient {
 
 	receivedAnalogUpdate(chan, value) {
 		if (value > 8191) value = value - 16384; // negative value (14-bits 2-completement)
-console.log('A' + chan + ': ', value);
 		this.analogChannel[chan] = value;
 		for (var f of this.updateListeners) f.call(); // notify all update listeners
 	}
 
 	receivedEvent(sysexStart, argBytes) {
+		const MICROBIT_ID_DISPLAY = 6;
+		const MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE = 1;
 		var sourceID =
 			(this.inbuf[sysexStart + 3] << 14) |
 			(this.inbuf[sysexStart + 2] << 7) |
@@ -249,7 +250,10 @@ console.log('A' + chan + ': ', value);
 			(this.inbuf[sysexStart + 6] << 14) |
 			(this.inbuf[sysexStart + 5] << 7) |
 			this.inbuf[sysexStart + 4];
-console.log('receivedEvent', sourceID, eventID);
+		if ((sourceID == MICROBIT_ID_DISPLAY) &&
+			(eventID == MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE)) {
+				this.isScrolling = false;
+		}
 		for (var f of this.eventListeners) f.call(null, sourceID, eventID); // notify all event listeners
 	}
 
@@ -268,6 +272,7 @@ console.log('receivedEvent', sourceID, eventID);
 	displayClear() {
 		// Clear the display and stop any ongoing animation.
 
+		this.isScrolling = false;
 		this.myPort.write([this.SYSEX_START, this.MB_DISPLAY_CLEAR, this.SYSEX_END]);
 	}
 
@@ -276,6 +281,7 @@ console.log('receivedEvent', sourceID, eventID);
 		// are brightness values in the range 0-255. Otherwise, a zero pixel value means off
 		// and >0 means on. Pixels is an Array of 5-element Arrays.
 
+		this.isScrolling = false;
 		this.myPort.write([this.SYSEX_START, this.MB_DISPLAY_SHOW]);
 		this.myPort.write([useGrayscale ? 1 : 0]);
 		for (var y = 0; y < 5; y++) {
@@ -291,6 +297,7 @@ console.log('receivedEvent', sourceID, eventID);
 	displayPlot(x, y, brightness) {
 		// Set the display pixel at x, y to the given brightness (0-255).
 
+		this.isScrolling = false;
 		this.myPort.write([this.SYSEX_START, this.MB_DISPLAY_PLOT,
 			x, y, (brightness / 2) & 0x7F,
 			this.SYSEX_END]);
@@ -301,6 +308,7 @@ console.log('receivedEvent', sourceID, eventID);
 		// Omit the delay parameter to use the default scroll speed.
 		// The maximum string length is 100 characters.
 
+		this.isScrolling = true;
 		if (null == delay) delay = 120;
 		if (s.length > 100) s = s.slice(0, 100);
 		var buf = new TextEncoder().encode(s);
@@ -317,6 +325,7 @@ console.log('receivedEvent', sourceID, eventID);
 		// Omit the delay parameter to use the default scroll speed.
 		// Note: 32-bit integer is transmitted as five 7-bit data bytes.
 
+		this.isScrolling = true;
 		if (null == delay) delay = 120;
 		this.myPort.write([this.SYSEX_START, this.MB_SCROLL_INTEGER,
 			delay,
