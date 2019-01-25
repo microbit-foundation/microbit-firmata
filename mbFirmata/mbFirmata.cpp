@@ -26,6 +26,8 @@ SOFTWARE.
   #include <Arduino.h>
 #else
   #include <MicroBit.h>
+  #include <mbed.h>
+  #include <ble.h>
 #endif
 
 #include "mbFirmata.h"
@@ -111,7 +113,7 @@ static int unsigned now() { return uBit.systemTime(); }
 
 // Debugging
 
-static void sendStringData(char *s) {
+static void sendStringData(const char *s) {
 	// Append the given 8-bit string data to the output buffer.
 	// Two seven-bit data bytes are appended for each byte of the string.
 	while (*s) {
@@ -120,11 +122,11 @@ static void sendStringData(char *s) {
 	}
 }
 
-static void DEBUG(char *s) {
+static void DEBUG(const char *s) {
 	// Send a 7-bit ASCII string for use in debugging.
 
 	send2Bytes(SYSEX_START, MB_DEBUG_STRING); // seven-bit ascii string
-	char *ptr = s;
+	char *ptr = (char *) s;
 	while (*ptr) sendByte(*ptr++ & 0x7F);
 	sendByte(SYSEX_END);
 }
@@ -138,11 +140,21 @@ static void reportFirmataVersion() {
 }
 
 static void reportFirmwareVersion() {
-	// Send firmware version.
+	// Send firmware version plus DAL, mbed library, and softdevice version info.
+	// The softdevice version can be found by looking up the firmward ID (FWID) here:
+	// https://devzone.nordicsemi.com/f/nordic-q-a/1171/how-do-i-access-softdevice-version-string
+
+	int major = 0;
+	int minor = 4;
+	ble_version_t bleInfo;
+	sd_ble_version_get(&bleInfo);
+	char s[100];
+	sprintf(s, "micro:bit Firmata (based on DAL %s; mbed %d; softdeviceFWID %d)",
+		microbit_dal_version(), MBED_LIBRARY_VERSION, bleInfo.subversion_number);
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
-	send2Bytes(0, 4); // micro:bit Firmata firmware version (vs. the Firmata protocol version)
-	sendStringData("micro:bit Firmata");
+	send2Bytes(major, minor); // firmware version (vs. Firmata protocol version)
+	sendStringData((const char *) s);
 	sendByte(SYSEX_END);
 }
 
@@ -320,7 +332,7 @@ static void setSamplingInterval(int msecs) {
 
 #ifdef ARDUINO_BBC_MICROBIT
 
-static void display_clear(int sysexStart, int argBytes) { }
+static void display_clear() { }
 static void display_show(int sysexStart, int argBytes) { }
 static void display_plot(int sysexStart, int argBytes) { }
 static void scrollString(int sysexStart, int argBytes) { }
@@ -329,7 +341,7 @@ static void setTouchMode(int sysexStart, int argBytes) { }
 
 #else
 
-static void display_clear(int sysexStart, int argBytes) {
+static void display_clear() {
 	uBit.display.stopAnimation();
 	uBit.display.clear();
 }
@@ -419,7 +431,7 @@ static void dispatchSysexCommand(int sysexStart, int argBytes) {
 	uint8_t sysexCmd = inbuf[sysexStart];
 	switch (sysexCmd) {
 	case MB_DISPLAY_CLEAR:
-		display_clear(sysexStart, argBytes);
+		display_clear();
 		break;
 	case MB_DISPLAY_SHOW:
 		display_show(sysexStart, argBytes);
