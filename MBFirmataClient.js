@@ -42,6 +42,7 @@ class MicrobitFirmataClient {
 		this.inbuf = new Uint8Array(1000);
 		this.inbufCount = 0;
 
+		this.boardSerialNumber = '';
 		this.firmataVersion = '';
 		this.firmwareVersion = '';
 
@@ -136,6 +137,20 @@ class MicrobitFirmataClient {
 		this.myPort.on('data', dataReceived.bind(this));
 		this.getFirmataVersion();
 		this.getFirmwareVersion();
+
+		// get the board serial number (used to determine board version)
+		this.boardSerialNumber = '';
+		serialport.list()
+		.then((ports) => {
+			for (var i = 0; i < ports.length; i++) {
+				var p = ports[i];
+				if ((p.comName == this.myPort.path)) {
+					this.boardSerialNumber = p.serialNumber;
+				}
+			}
+			return null;
+		})
+
 	}
 
 	disconnect() {
@@ -144,6 +159,17 @@ class MicrobitFirmataClient {
 			this.myPort.close();
 			this.myPort = null;
 		}
+	}
+
+	// Board Version
+
+	boardVersion() {
+		// The board version can be determined from the USB device serial number.
+		// See https://support.microbit.org/support/solutions/articles/19000084312-micro-bit-motion-sensor-hardware-changes-for-editor-developers
+		var boardID = this.boardSerialNumber.slice(0, 4);
+		if ('9900' == boardID) return 'v1.3';
+		if ('9901' == boardID) return 'v1.5';
+		return 'unrecognized board';
 	}
 
 	// Process Firmata Messages
