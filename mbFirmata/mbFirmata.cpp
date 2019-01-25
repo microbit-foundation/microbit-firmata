@@ -145,7 +145,7 @@ static void reportFirmwareVersion() {
 	// https://devzone.nordicsemi.com/f/nordic-q-a/1171/how-do-i-access-softdevice-version-string
 
 	int major = 0;
-	int minor = 4;
+	int minor = 5;
 	ble_version_t bleInfo;
 	sd_ble_version_get(&bleInfo);
 	char s[100];
