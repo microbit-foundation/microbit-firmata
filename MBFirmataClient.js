@@ -46,7 +46,10 @@ class MicrobitFirmataClient {
 		this.firmataVersion = '';
 		this.firmwareVersion = '';
 
+		this.buttonAPressed = false;
+		this.buttonBPressed = false;
 		this.isScrolling = false;
+
 		this.digitalInput = new Array(21).fill(false);
 		this.analogChannel = new Array(16).fill(0);
 		this.eventListeners = new Array();
@@ -294,8 +297,14 @@ class MicrobitFirmataClient {
 	}
 
 	receivedEvent(sysexStart, argBytes) {
+		const MICROBIT_ID_BUTTON_A = 1;
+		const MICROBIT_ID_BUTTON_B = 2;
+		const MICROBIT_BUTTON_EVT_DOWN = 1;
+		const MICROBIT_BUTTON_EVT_UP = 2;
+
 		const MICROBIT_ID_DISPLAY = 6;
 		const MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE = 1;
+
 		var sourceID =
 			(this.inbuf[sysexStart + 3] << 14) |
 			(this.inbuf[sysexStart + 2] << 7) |
@@ -304,11 +313,22 @@ class MicrobitFirmataClient {
 			(this.inbuf[sysexStart + 6] << 14) |
 			(this.inbuf[sysexStart + 5] << 7) |
 			this.inbuf[sysexStart + 4];
+
+		if (sourceID == MICROBIT_ID_BUTTON_A) {
+			if (eventID == MICROBIT_BUTTON_EVT_DOWN) this.buttonAPressed = true;
+			if (eventID == MICROBIT_BUTTON_EVT_UP) this.buttonAPressed = false;
+		}
+		if (sourceID == MICROBIT_ID_BUTTON_B) {
+			if (eventID == MICROBIT_BUTTON_EVT_DOWN) this.buttonBPressed = true;
+			if (eventID == MICROBIT_BUTTON_EVT_UP) this.buttonBPressed = false;
+		}
 		if ((sourceID == MICROBIT_ID_DISPLAY) &&
 			(eventID == MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE)) {
 				this.isScrolling = false;
 		}
-		for (var f of this.eventListeners) f.call(null, sourceID, eventID); // notify all event listeners
+
+		 // notify event listeners
+		for (var f of this.eventListeners) f.call(null, sourceID, eventID);
 	}
 
 	// Version Commands

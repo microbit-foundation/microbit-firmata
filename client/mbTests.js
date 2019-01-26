@@ -23,6 +23,12 @@ SOFTWARE.
 */
 
 /* To do:
+  [ ] digital input pins 0-5 (with display disabled)
+  [ ] analog input pins 0-5 (with display disabled)
+  [ ] accelerometer test (readings and events)
+  [ ] other sensor tests (readings; do after analog pin tests)
+  [ ] button tests (check for all possible events)
+
   [ ] display tests (monitor events to know when scrolling done)
   [ ] sensor test (press key to exit)
   [ ] tilt tests
@@ -54,7 +60,19 @@ function initKeyboard() {
 	keyPressed = false;
 }
 
-// Terminal cursor control
+// Timer
+
+var startTime = 0;
+
+function timerStart() {
+	startTime = new Date().getTime();
+}
+
+function timerMSecs() {
+	return (new Date().getTime()) - startTime;
+}
+
+// Cursor control
 
 function clearScreen() {
 	process.stdout.write('\033[2J');
@@ -64,62 +82,73 @@ function moveCursorTo(line, col) {
 	process.stdout.write('\033[' + line + ';' + col + 'f');
 }
 
+// Test Runner
+
+function runTests(testList) {
+	// Run all the tests in the given list of tests.
+
+	var currentTest; // the current test
+	function stepper() {
+		if (!currentTest) {
+			if (testList.length > 0) {
+				currentTest = new (testList.shift());
+//				console.log(currentTest.constructor.name + ': ' + currentTest.testName());
+			} else {
+				console.log('No more tests');
+				process.exit();
+			}
+		}
+		var status = currentTest.step();
+		if ('ok' == status) {
+			console.log(currentTest.testName() + ': passed');
+			currentTest = null;
+		} else if ('fail' == status) {
+			console.log(currentTest.testName() + ': *** FAILED! ***');
+			currentTest = null;
+		}
+	}
+	initKeyboard();
+	var ticker = setInterval(stepper, 25);
+}
+
 // Tests
 
 /* Each test is a class with:
- *		description()	- returns a short string describing the test
- *		constructor()	- initializes the test state
+ *		testName()		- returns the test name
+ *		constructor()	- initializes the test, possibly printing instructions for the tester
  *		step()			- takes the next action of the test, checks for completion
- *							and returns 'ok', 'fail', or '' (if test is still in progress)
+ *						- returns 'ok', 'fail', or '' if test is still in progress
  */
 
-class TestX1 {
-	description() { return 'keyPressed'; }
-	constructor() {
-		keyPressed = false;
-	}
-	step() {
-		return keyPressed ? 'ok' : '';
-	}
-}
+class ConnectivityTest {
+	// Connect to board and verify that the board responds to firmataVersion request.
+	// NOTE: This must be the first test.
 
-class TestX2 {
-	description() { return 'timer callback'; }
+	testName() { return 'Board connectivity'; }
 	constructor() {
-		this.phase = 0;
-		this.startTime = new Date().getTime();
-	}
-	step() {
-		var secs = (new Date().getTime() - this.startTime) / 100;
-		secs = Math.trunc(secs);
-		if (secs > this.phase) {
-			this.phase = secs;
-//			console.log(this.phase);
-		}
-		return (this.phase >= 10) ? 'ok' : '';
-	}
-}
-
-class Test1 {
-	description() { return 'board connectivity'; }
-	constructor() {
-		this.startTime = new Date().getTime();
+		mb.disconnect();
 		mb.firmataVersion = '';
 		mb.connect();
+		timerStart();
 	}
 	step() {
-		if (mb.firmataVersion.length > 0) return 'ok'; // got version
-		var msecs = new Date().getTime() - this.startTime;
-		if (msecs > 1000) {
-			console.log('No response from board');
-			return 'fail';
+		if (mb.firmataVersion.length > 0) {
+			console.log(mb.firmataVersion);
+			console.log(mb.firmwareVersion);
+			return 'ok'; // got version
+		}
+		if (timerMSecs() > 1000) {
+			console.log('No response from board.');
+			console.log('Make sure micro:bit is connected and that Firmata firmware is installed.');
+			console.log('Cannot proceed with other tests. Goodbye!');
+			process.exit();
 		}
 		return '';
 	}
 }
 
 class Test2 {
-	description() { return 'scroll string'; }
+	testName() { return 'Scroll string'; }
 	constructor() {
 		mb.scrollString('test', 80);
 	}
@@ -129,7 +158,7 @@ class Test2 {
 }
 
 class Test3 {
-	description() { return 'scroll number'; }
+	testName() { return 'Scroll number'; }
 	constructor() {
 		mb.scrollNumber(-123, 80);
 	}
@@ -139,7 +168,7 @@ class Test3 {
 }
 
 class Test4 {
-	description() { return 'sensor streaming'; }
+	testName() { return 'Sensor streaming'; }
 	constructor() {
 		keyPressed = false;
 		this.firstTime = true;
@@ -147,8 +176,14 @@ class Test4 {
 	step() {
 		if (this.firstTime) {
 			this.firstTime = false;
-			mb.setAnalogSamplingInterval(500);
-			for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
+			mb.setAnalogSamplingInterval(100);
+//			for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
+for (var i = 0; i < 6; i++) mb.streamAnalogChannel(i);
+// mb.streamAnalogChannel(11);
+// mb.streamAnalogChannel(12);
+// mb.streamAnalogChannel(13);
+// mb.streamAnalogChannel(14);
+// mb.streamAnalogChannel(15);
 			clearScreen();
 			moveCursorTo(18, 0);
 			console.log('Sensor streaming test. Press any key to exit.');
@@ -182,60 +217,61 @@ class Test4 {
 	}
 }
 
-function runTestList(testList) {
-	var currentTest; // the current test
-	function stepper() {
-		if (!currentTest) {
-			if (testList.length > 0) {
-				currentTest = new (testList.shift());
-				console.log(currentTest.constructor.name + ': ' + currentTest.description());
+class Test5 {
+	testName() { return 'Display'; }
+	constructor() {
+		this.phase = 0;
+		this.x = 0;
+		this.y = 0;
+		mb.displayClear();
+	}
+	step() {
+		if (0 == this.phase) {
+			if (this.y < 5) {
+				mb.displayPlot(this.x, this.y, 255);
+				this.x++;
+				if (this.x > 4) {
+					this.x = 0;
+					this.y++;
+				}
 			} else {
-				console.log('No more tests');
-				process.exit();
+				this.x = 0;
+				this.y = 0;
+				this.phase = 1;
 			}
 		}
-		var status = currentTest.step();
-		if ('ok' == status) {
-			console.log('ok');
-			currentTest = null;
-		} else if ('fail' == status) {
-			console.log('*** FAILED! ***');
-			currentTest = null;
+		if (1 == this.phase) {
+			if (this.y < 5) {
+				mb.displayPlot(this.x, this.y, 0);
+				this.x++;
+				if (this.x > 4) {
+					this.x = 0;
+					this.y++;
+				}
+			} else {
+				this.x = 0;
+				this.y = 0;
+				this.phase = 2;
+			}
 		}
+		return (this.phase > 1) ? 'ok' : '';
 	}
-	initKeyboard();
-	var ticker = setInterval(stepper, 100);
 }
 
-function runTest(aTest) {
-	// Run a single test.
-
-	runTestList([aTest]);
-}
+// Run all tests
 
 function runAllTests() {
 	// Run entire test suite. New tests may be added to the list below.
 
-	runTestList([
-// 		TestX1,
-// 		TestX2,
-		Test1,
-		Test2,
-		Test3,
-		Test4
+	runTests([
+		ConnectivityTest,
+// 		Test2,
+// 		Test3,
+//		Test4,
+		Test5
 	]);
 }
 
-function cursorTest() {
-	clearScreen();
-	for (var i = 1; i <= 16; i++) {
-		moveCursorTo(i, 0);
-		process.stdout.write(i.toString());
-		moveCursorTo(i, 20);
-		process.stdout.write((i * i).toString());
-	}
-	moveCursorTo(18, 0);
-}
-
 runAllTests();
-//runTest(Test2);
+//runTests([ConnectivityTest, Test4]);
+//mb.connect();

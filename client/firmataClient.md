@@ -1,9 +1,8 @@
 ## BBC micro:bit Firmata Client
 
-The BBC micro:bit Firmata Client is a Javascript class that runs in Node.js and communicates
+The Firmata Client is a Javascript class that runs in Node.js and communicates
 with the micro:bit Firmata firmware over a USB-serial connection. It implements the
-Firmata protocol and provides a number of properties and methods for controlling micro:bit
-output devices and for receiving sensor data and events from the micro:bit.
+Firmata protocol and provides properties and methods for interacting with the micro:bit.
 
 ### Connecting
 
@@ -19,8 +18,6 @@ output devices and for receiving sensor data and events from the micro:bit.
 
 
 ### Version Information
-
-Two read-only properties and one method report version information:
 
 <dl>
   <dt>firmataVersion</dt>
@@ -46,13 +43,13 @@ Two read-only properties and one method report version information:
 
 ### Buttons
 
-Two read-only properties reflect the state of buttons A and B. The buttons also generate
+These two properties reflect the state of buttons A and B. The buttons also generate
 events (see the **Events** section).
 
 <dl>
   <dt>buttonAPressed<br>
   	  buttonBPressed</dt>
-  <dd>Boolean values that reflect the current button state. True when a button is pressed.</dd>
+  <dd>Boolean values that reflect the current button state. True when the given button is pressed.</dd>
 </dl>
 
 ### Events
