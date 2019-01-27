@@ -316,6 +316,14 @@ static void streamAnalogChannel(uint8_t chan, uint8_t isOn) {
 	// Turn streaming of the given analog channel on or off.
 
 	if (chan < 16) isStreamingChannel[chan] = isOn;
+	if (chan < 6) {
+		int pin = (5 == chan) ? 10 : chan; // channels 0-4 are pins 0-4; channel 5 is pin 10
+		#ifndef ARDUINO_BBC_MICROBIT
+			uBit.io.pin[pin].getDigitalValue(); // put in digital read mode
+			uBit.io.pin[pin].setPull(PullNone); // turn off pullup/down
+			if (isOn) uBit.io.pin[pin].getAnalogValue();
+		#endif
+	}
 }
 
 static void streamDigitalPort(uint8_t port, uint8_t isOn) {
@@ -332,7 +340,7 @@ static void setSamplingInterval(int msecs) {
 
 #ifdef ARDUINO_BBC_MICROBIT
 
-static void display_clear() { }
+static void display_clear(int sysexStart, int argBytes) { }
 static void display_show(int sysexStart, int argBytes) { }
 static void display_plot(int sysexStart, int argBytes) { }
 static void scrollString(int sysexStart, int argBytes) { }
@@ -341,9 +349,37 @@ static void setTouchMode(int sysexStart, int argBytes) { }
 
 #else
 
-static void display_clear() {
+static void analogDisable() {
+	/* Comment from DAL MicroBitLightSensor.cpp:
+	*
+	* Forcibly disable AnalogIn, otherwise it will remain in possession of the GPIO channel
+	* it is using, meaning that the display will not be able to use a channel (COL).
+	*
+	* This is required as per PAN 3, details of which can be found here:
+	*
+	* https://www.nordicsemi.com/eng/nordic/download_resource/24634/5/88440387
+	*/
+
+	NRF_ADC->ENABLE = ADC_ENABLE_ENABLE_Disabled;
+	NRF_ADC->CONFIG =
+		(ADC_CONFIG_RES_8bit		<< ADC_CONFIG_RES_Pos) |
+		(ADC_CONFIG_INPSEL_SupplyTwoThirdsPrescaling << ADC_CONFIG_INPSEL_Pos) |
+		(ADC_CONFIG_REFSEL_VBG		<< ADC_CONFIG_REFSEL_Pos) |
+		(ADC_CONFIG_PSEL_Disabled	<< ADC_CONFIG_PSEL_Pos) |
+		(ADC_CONFIG_EXTREFSEL_None	<< ADC_CONFIG_EXTREFSEL_Pos);
+}
+
+static void display_clear(int sysexStart, int argBytes) {
 	uBit.display.stopAnimation();
 	uBit.display.clear();
+	if (argBytes > 0) {
+		// optional arg used to enable/disable the display
+		int enable = inbuf[sysexStart + 1];
+		uBit.display.disable();
+		uBit.display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE);
+		analogDisable(); // in case light sensor was in use
+		if (enable) uBit.display.enable();
+	}
 }
 
 static void display_show(int sysexStart, int argBytes) {
@@ -431,7 +467,7 @@ static void dispatchSysexCommand(int sysexStart, int argBytes) {
 	uint8_t sysexCmd = inbuf[sysexStart];
 	switch (sysexCmd) {
 	case MB_DISPLAY_CLEAR:
-		display_clear();
+		display_clear(sysexStart, argBytes);
 		break;
 	case MB_DISPLAY_SHOW:
 		display_show(sysexStart, argBytes);
