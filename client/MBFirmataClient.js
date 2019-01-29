@@ -86,7 +86,8 @@ class MicrobitFirmataClient {
 		this.MB_SCROLL_STRING			= 0x04
 		this.MB_SCROLL_INTEGER			= 0x05
 		this.MB_SET_TOUCH_MODE			= 0x06
-		// 0x07-0x0C reserved for additional micro:bit messages
+		this.MB_DISPLAY_ENABLE			= 0x07
+		// 0x08-0x0C reserved for additional micro:bit messages
 		this.MB_REPORT_EVENT			= 0x0D
 		this.MB_DEBUG_STRING			= 0x0E
 		this.MB_EXTENDED_SYSEX			= 0x0F; // allow for 128 additional micro:bit messages
@@ -342,6 +343,18 @@ class MicrobitFirmataClient {
 	}
 
 	// Display Commands
+
+	enableDisplay(enableFlag) {
+		// Enable or disable the display. When the display is disabled, the edge connector
+		// pins normall used by the display can be used for other I/O functions.
+		// Re-enabling the display (even when is already enabled) disables the light
+		// sensor which, when running monopolizes the A/D converter preventing all pins
+		// from being used for analog input. Requesting a light sensor value restarts
+		// the light sensor.
+
+		var enable = enableFlag ? 1 : 0;
+		this.myPort.write([this.SYSEX_START, this.MB_DISPLAY_ENABLE, enable, this.SYSEX_END]);
+	}
 
 	displayClear() {
 		// Clear the display and stop any ongoing animation.

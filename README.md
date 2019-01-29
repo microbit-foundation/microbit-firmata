@@ -5,9 +5,9 @@ Lancaster DAL and mbed libraries) that is installed in a BBC micro:bit plus a cl
 class written in Javascript that runs in Node.js and communicates with the micro:bit
 over a USB-serial connection.
 
-A .hex file is provided for easy firmware installation (so you don't need to
-compile it yourself) and a Javascript test suite is provided to test and
-demonstrates the system.
+A precompiled .hex file is provided for easy firmware installation (so you don't need
+to compile it yourself) and a Javascript test suite is provided to test and demonstrate
+the system.
 
 The basic Firmata features are extended with a set of micro:bit-specific commands
 (implemented as Firmata sysex messages) to control the micro:bit display, I/O pins,
