@@ -92,7 +92,6 @@ function runTests(testList) {
 		if (!currentTest) {
 			if (testList.length > 0) {
 				currentTest = new (testList.shift());
-//				console.log(currentTest.constructor.name + ': ' + currentTest.testName());
 			} else {
 				console.log('No more tests');
 				process.exit();
@@ -147,7 +146,7 @@ class ConnectivityTest {
 	}
 }
 
-class Test2 {
+class Test1 {
 	testName() { return 'Scroll string'; }
 	constructor() {
 		mb.scrollString('test', 80);
@@ -157,7 +156,7 @@ class Test2 {
 	}
 }
 
-class Test3 {
+class Test2 {
 	testName() { return 'Scroll number'; }
 	constructor() {
 		mb.scrollNumber(-123, 80);
@@ -167,18 +166,137 @@ class Test3 {
 	}
 }
 
+class Test3 {
+	testName() { return 'Plot and display'; }
+	constructor() {
+		this.phase = 0;
+		this.x = 0;
+		this.y = 0;
+		mb.enableDisplay(true);
+		timerStart();
+	}
+	step() {
+		if ((0 == this.phase) && (timerMSecs() > 100)) {
+			if (this.y < 5) {
+				mb.displayPlot(this.x, this.y, 255);
+				this.x++;
+				if (this.x > 4) {
+					this.x = 0;
+					this.y++;
+				}
+			} else {
+				this.x = 0;
+				this.y = 0;
+				this.phase = 1;
+			}
+		}
+		if (1 == this.phase) {
+			if (this.y < 5) {
+				mb.displayPlot(this.x, this.y, 0);
+				this.x++;
+				if (this.x > 4) {
+					this.x = 0;
+					this.y++;
+				}
+			} else {
+				this.x = 0;
+				this.y = 0;
+				this.phase = 2;
+			}
+		}
+		if (2 == this.phase) {
+			mb.displayShow(false, [
+				[0, 1, 0, 1, 0],
+				[0, 1, 0, 1, 0],
+				[0, 0, 0, 0, 0],
+				[1, 0, 0, 0, 1],
+				[0, 1, 1, 1, 0]]);
+			timerStart();
+			this.phase = 3;
+		}
+		if ((3 == this.phase) && (timerMSecs() > 1000)) {
+			mb.displayShow(true, [
+				[255, 255, 255, 255, 255],
+				[255, 100, 100, 100, 255],
+				[255,  50,   5,  50, 255],
+				[255, 100, 100, 100, 255],
+				[255, 255, 255, 255, 255]]);
+			timerStart();
+			this.phase = 4;
+		}
+		if ((4 == this.phase) && (timerMSecs() > 1000)) {
+			mb.enableDisplay(false);
+			this.phase = 5;
+		}
+		return (this.phase >= 5) ? 'ok' : '';
+	}
+}
+
 class Test4 {
 	testName() { return 'Sensor streaming'; }
 	constructor() {
 		keyPressed = false;
 		this.firstTime = true;
+		mb.enableDisplay(true);
+		mb.displayClear();
 	}
 	step() {
 		if (this.firstTime) {
 			this.firstTime = false;
 			mb.setAnalogSamplingInterval(100);
 //			for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
-for (var i = 0; i < 6; i++) mb.streamAnalogChannel(i);
+for (var i = 0; i < 10; i++) mb.streamAnalogChannel(i);
+mb.streamAnalogChannel(11);
+// mb.streamAnalogChannel(12);
+// mb.streamAnalogChannel(13);
+// mb.streamAnalogChannel(14);
+// mb.streamAnalogChannel(15);
+			clearScreen();
+			moveCursorTo(18, 0);
+			console.log('Sensor streaming test. Press any key to exit.');
+		}
+		this.showSensors();
+		if (keyPressed) {
+			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
+			moveCursorTo(19, 0);
+			return 'ok';
+		}
+		return '';
+	}
+	showSensors() {
+		var channelNames = [
+			'pin 0', 'pin 1', 'pin 2', 'pin 3', 'pin 4', 'pin 5', '(unused)', '(unused)',
+			'accelerometer x', 'accelerometer y', 'accelerometer z',
+			'light sensor', 'temperature',
+			'magnetometer x', 'magnetometer y', 'magnetometer z'];
+
+		for (var i = 0; i < 16; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			process.stdout.write(i.toString());
+			moveCursorTo(line, 4);
+			process.stdout.write(channelNames[i]);
+			moveCursorTo(line, 22);
+			process.stdout.write('          '); // erase old value
+			moveCursorTo(line, 22);
+			process.stdout.write(mb.analogChannel[i].toString());
+		}
+	}
+}
+
+class Test4NoLight {
+	testName() { return 'Sensor streaming'; }
+	constructor() {
+		keyPressed = false;
+		this.firstTime = true;
+		mb.enableDisplay(false);
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			mb.setAnalogSamplingInterval(100);
+//			for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
+for (var i = 0; i < 7; i++) mb.streamAnalogChannel(i);
 // mb.streamAnalogChannel(11);
 // mb.streamAnalogChannel(12);
 // mb.streamAnalogChannel(13);
@@ -217,44 +335,35 @@ for (var i = 0; i < 6; i++) mb.streamAnalogChannel(i);
 	}
 }
 
-class Test5 {
-	testName() { return 'Display'; }
+
+class Test6 {
+	testName() { return 'Timestamps'; }
 	constructor() {
-		this.phase = 0;
-		this.x = 0;
-		this.y = 0;
-		mb.displayClear();
+		mb.enableDisplay(false);
+		mb.setAnalogSamplingInterval(1);
+for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
+		mb.streamAnalogChannel(6);
+		mb.analogSampleCount = 0;
+		timerStart();
+		this.samplingTime = 0;
+		this.sampling = true;
 	}
 	step() {
-		if (0 == this.phase) {
-			if (this.y < 5) {
-				mb.displayPlot(this.x, this.y, 255);
-				this.x++;
-				if (this.x > 4) {
-					this.x = 0;
-					this.y++;
-				}
-			} else {
-				this.x = 0;
-				this.y = 0;
-				this.phase = 1;
-			}
+		var msecs = timerMSecs();
+		if (this.sampling && (msecs > 1000)) {
+			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
+			this.samplingTime = msecs;
+			this.sampling = false;
 		}
-		if (1 == this.phase) {
-			if (this.y < 5) {
-				mb.displayPlot(this.x, this.y, 0);
-				this.x++;
-				if (this.x > 4) {
-					this.x = 0;
-					this.y++;
-				}
-			} else {
-				this.x = 0;
-				this.y = 0;
-				this.phase = 2;
-			}
+		if (msecs > 1100) {
+			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
+			console.log('total: ', mb.analogSampleCount, 'samples in', this.samplingTime, 'msecs');
+			console.log('chan 6:', mb.times.length, 'samples in', this.samplingTime, 'msecs');
+			console.log(mb.counts);
+//			for (var t of mb.times) console.log(t);
+			return 'ok';
 		}
-		return (this.phase > 1) ? 'ok' : '';
+		return '';
 	}
 }
 
@@ -265,13 +374,11 @@ function runAllTests() {
 
 	runTests([
 		ConnectivityTest,
-// 		Test2,
-// 		Test3,
-//		Test4,
-		Test5
+		Test1,
+		Test2,
+		Test3,
+		Test4,
 	]);
 }
 
 runAllTests();
-//runTests([ConnectivityTest, Test4]);
-//mb.connect();

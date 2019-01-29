@@ -38,6 +38,8 @@ int main() {
 	while (true) {
 		stepFirmata();
 
+		uBit.sleep(0); // run event scheduler
+
 		// Note: The following code is essential to avoid overrunning the serial line
 		// and losing or currupting data, A fixed delay works, too, but a delay
 		// long enough to handle the worst case (streaming 16 channels of analog data
