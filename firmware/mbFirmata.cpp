@@ -78,7 +78,7 @@ static void send3Bytes(uint8_t b1, uint8_t b2, uint8_t b3) {
 	Serial.write(b3);
 }
 
-static int unsigned now() { return millis(); }
+static uint32_t now() { return millis(); }
 
 #else // DAL
 
@@ -107,7 +107,7 @@ static void send3Bytes(uint8_t b1, uint8_t b2, uint8_t b3) {
 	uBit.serial.sendChar(b3, ASYNC);
 }
 
-static int unsigned now() { return uBit.systemTime(); }
+static uint32_t now() { return uBit.systemTime(); }
 
 #endif
 
@@ -333,19 +333,20 @@ static void streamDigitalPort(uint8_t port, uint8_t isOn) {
 }
 
 static void setSamplingInterval(int msecs) {
-	samplingInterval = (msecs < 5) ? 5 : msecs;
+	samplingInterval = (msecs < 1) ? 1 : msecs;
 }
 
 // Display Commands
 
 #ifdef ARDUINO_BBC_MICROBIT
 
-static void display_clear(int sysexStart, int argBytes) { }
+static void display_clear() { }
 static void display_show(int sysexStart, int argBytes) { }
 static void display_plot(int sysexStart, int argBytes) { }
 static void scrollString(int sysexStart, int argBytes) { }
 static void scrollNumber(int sysexStart, int argBytes) { }
 static void setTouchMode(int sysexStart, int argBytes) { }
+static void setDisplayEnable(int sysexStart, int argBytes) { }
 
 #else
 
@@ -369,17 +370,9 @@ static void analogDisable() {
 		(ADC_CONFIG_EXTREFSEL_None	<< ADC_CONFIG_EXTREFSEL_Pos);
 }
 
-static void display_clear(int sysexStart, int argBytes) {
+static void display_clear() {
 	uBit.display.stopAnimation();
 	uBit.display.clear();
-	if (argBytes > 0) {
-		// optional arg used to enable/disable the display
-		int enable = inbuf[sysexStart + 1];
-		uBit.display.disable();
-		uBit.display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE);
-		analogDisable(); // in case light sensor was in use
-		if (enable) uBit.display.enable();
-	}
 }
 
 static void display_show(int sysexStart, int argBytes) {
@@ -459,6 +452,23 @@ static void setTouchMode(int sysexStart, int argBytes) {
 	}
 }
 
+static void setDisplayEnable(int sysexStart, int argBytes) {
+	// Disable or re-enable the display. (The display is initially enabled at startup.)
+	// When the display is disabled, pins 0-5 can be used for other purposes.
+	// Re-enabling the display (even when already enabled) turns off light sensing
+	// until the next time a light sensor value is requested.
+
+	if (argBytes < 1) return;
+	int enableDisplay = inbuf[sysexStart + 1];
+
+	uBit.display.stopAnimation();
+	uBit.display.clear();
+	uBit.display.disable();
+	uBit.display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE); // disable light sensing
+	analogDisable(); // in case light sensor was in use
+	if (enableDisplay) uBit.display.enable(); // re-enable
+}
+
 #endif
 
 // MIDI parsing
@@ -467,7 +477,7 @@ static void dispatchSysexCommand(int sysexStart, int argBytes) {
 	uint8_t sysexCmd = inbuf[sysexStart];
 	switch (sysexCmd) {
 	case MB_DISPLAY_CLEAR:
-		display_clear(sysexStart, argBytes);
+		display_clear();
 		break;
 	case MB_DISPLAY_SHOW:
 		display_show(sysexStart, argBytes);
@@ -483,6 +493,9 @@ static void dispatchSysexCommand(int sysexStart, int argBytes) {
 		break;
 	case MB_SET_TOUCH_MODE:
 		setTouchMode(sysexStart, argBytes);
+		break;
+	case MB_DISPLAY_ENABLE:
+		setDisplayEnable(sysexStart, argBytes);
 		break;
 	case ANALOG_MAPPING_QUERY:
 		reportAnalogMapping();
