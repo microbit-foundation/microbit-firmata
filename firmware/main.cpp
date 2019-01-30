@@ -25,28 +25,9 @@ SOFTWARE.
 #include "MicroBit.h"
 #include "mbFirmata.h"
 
-MicroBit uBit;
-
 int main() {
-	uBit.init();
-	uBit.serial.baud(57600);
-	uBit.serial.setRxBufferSize(249);
-	uBit.serial.setTxBufferSize(249);
-
 	initFirmata();
-
 	while (true) {
 		stepFirmata();
-
-		uBit.sleep(0); // run event scheduler
-
-		// Note: The following code is essential to avoid overrunning the serial line
-		// and losing or currupting data, A fixed delay works, too, but a delay
-		// long enough to handle the worst case (streaming 16 channels of analog data
-		// and three digital ports, a total of 3 * 19 = 57 bytes) reduces the maximum
-		// sampling rate for a single channel. This is like a SYNC_SPINWAIT for all
-		// the serial data queued by the last call to stepFirmata().
-
-		while (uBit.serial.txBufferedSize() > 0) /* wait for all bytes to be sent */;
 	}
 }
