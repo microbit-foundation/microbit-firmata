@@ -174,7 +174,7 @@ static void reportFirmwareVersion() {
 	ble_version_t bleInfo;
 	sd_ble_version_get(&bleInfo);
 	char s[100];
-	sprintf(s, "micro:bit Firmata (based on DAL %s; mbed %d; softdeviceFWID %d)",
+	sprintf(s, "[based on DAL %s; mbed %d; softdeviceFWID %d] micro:bit Firmata",
 		microbit_dal_version(), MBED_LIBRARY_VERSION, bleInfo.subversion_number);
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);

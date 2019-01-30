@@ -82,6 +82,10 @@ function moveCursorTo(line, col) {
 	process.stdout.write('\033[' + line + ';' + col + 'f');
 }
 
+function eraseToEndOfLine() {
+	process.stdout.write('\033[K');
+}
+
 // Test Runner
 
 function runTests(testList) {
@@ -131,7 +135,7 @@ class ConnectivityTest {
 		timerStart();
 	}
 	step() {
-		if (mb.firmataVersion.length > 0) {
+		if ((mb.firmataVersion.length > 0) && (mb.firmwareVersion.length > 0)) {
 			console.log(mb.firmataVersion);
 			console.log(mb.firmwareVersion);
 			return 'ok'; // got version
@@ -233,32 +237,29 @@ class Test3 {
 }
 
 class Test4 {
-	testName() { return 'Sensor streaming'; }
+	testName() { return 'Analog streaming (w/ light sensor)'; }
 	constructor() {
 		keyPressed = false;
 		this.firstTime = true;
 		mb.enableDisplay(true);
-		mb.displayClear();
 	}
 	step() {
 		if (this.firstTime) {
 			this.firstTime = false;
 			mb.setAnalogSamplingInterval(100);
-//			for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
-for (var i = 0; i < 10; i++) mb.streamAnalogChannel(i);
-mb.streamAnalogChannel(11);
-// mb.streamAnalogChannel(12);
-// mb.streamAnalogChannel(13);
-// mb.streamAnalogChannel(14);
-// mb.streamAnalogChannel(15);
+			for (var chan = 0; chan < 16; chan++) {
+				mb.streamAnalogChannel(chan);
+			}
+			mb.clearChannelData();
 			clearScreen();
 			moveCursorTo(18, 0);
-			console.log('Sensor streaming test. Press any key to exit.');
+			console.log('Analog streaming (w/ light sensor). Press any key to exit.');
 		}
 		this.showSensors();
 		if (keyPressed) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
-			moveCursorTo(19, 0);
+			moveCursorTo(18, 0);
+			eraseToEndOfLine();
 			return 'ok';
 		}
 		return '';
@@ -277,7 +278,7 @@ mb.streamAnalogChannel(11);
 			moveCursorTo(line, 4);
 			process.stdout.write(channelNames[i]);
 			moveCursorTo(line, 22);
-			process.stdout.write('          '); // erase old value
+			eraseToEndOfLine();
 			moveCursorTo(line, 22);
 			process.stdout.write(mb.analogChannel[i].toString());
 		}
@@ -285,7 +286,7 @@ mb.streamAnalogChannel(11);
 }
 
 class Test4NoLight {
-	testName() { return 'Sensor streaming'; }
+	testName() { return 'Analog streaming (no light sensor)'; }
 	constructor() {
 		keyPressed = false;
 		this.firstTime = true;
@@ -295,21 +296,19 @@ class Test4NoLight {
 		if (this.firstTime) {
 			this.firstTime = false;
 			mb.setAnalogSamplingInterval(100);
-//			for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
-for (var i = 0; i < 7; i++) mb.streamAnalogChannel(i);
-// mb.streamAnalogChannel(11);
-// mb.streamAnalogChannel(12);
-// mb.streamAnalogChannel(13);
-// mb.streamAnalogChannel(14);
-// mb.streamAnalogChannel(15);
+			for (var chan = 0; chan < 16; chan++) {
+				if (chan != 11) mb.streamAnalogChannel(chan);
+			}
+			mb.clearChannelData();
 			clearScreen();
 			moveCursorTo(18, 0);
-			console.log('Sensor streaming test. Press any key to exit.');
+			console.log('Analog streaming (no light sensor). Press any key to exit.');
 		}
 		this.showSensors();
 		if (keyPressed) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
-			moveCursorTo(19, 0);
+			moveCursorTo(18, 0);
+			eraseToEndOfLine();
 			return 'ok';
 		}
 		return '';
@@ -328,22 +327,20 @@ for (var i = 0; i < 7; i++) mb.streamAnalogChannel(i);
 			moveCursorTo(line, 4);
 			process.stdout.write(channelNames[i]);
 			moveCursorTo(line, 22);
-			process.stdout.write('          '); // erase old value
+			eraseToEndOfLine();
 			moveCursorTo(line, 22);
 			process.stdout.write(mb.analogChannel[i].toString());
 		}
 	}
 }
 
-
-class Test6 {
-	testName() { return 'Timestamps'; }
+class Test5 {
+	testName() { return 'Stress test: one channel'; }
 	constructor() {
 		mb.enableDisplay(false);
 		mb.setAnalogSamplingInterval(1);
-for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
-		mb.streamAnalogChannel(6);
-		mb.analogSampleCount = 0;
+		mb.streamAnalogChannel(6); // unused channel; always zero
+		mb.clearChannelData();
 		timerStart();
 		this.samplingTime = 0;
 		this.sampling = true;
@@ -357,10 +354,36 @@ for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
 		}
 		if (msecs > 1100) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
-			console.log('total: ', mb.analogSampleCount, 'samples in', this.samplingTime, 'msecs');
-			console.log('chan 6:', mb.times.length, 'samples in', this.samplingTime, 'msecs');
-			console.log(mb.counts);
-//			for (var t of mb.times) console.log(t);
+			console.log('total: ', mb.analogUpdateCount, 'samples in', this.samplingTime, 'msecs');
+//			console.log(mb.channelUpdateCounts);
+			return 'ok';
+		}
+		return '';
+	}
+}
+
+class Test6 {
+	testName() { return 'Stress test: 16 channels'; }
+	constructor() {
+		mb.enableDisplay(false);
+		mb.setAnalogSamplingInterval(1);
+		for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
+		mb.clearChannelData();
+		timerStart();
+		this.samplingTime = 0;
+		this.sampling = true;
+	}
+	step() {
+		var msecs = timerMSecs();
+		if (this.sampling && (msecs > 1000)) {
+			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
+			this.samplingTime = msecs;
+			this.sampling = false;
+		}
+		if (msecs > 1100) {
+			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
+			console.log('total: ', mb.analogUpdateCount, 'samples in', this.samplingTime, 'msecs');
+//			console.log(mb.channelUpdateCounts);
 			return 'ok';
 		}
 		return '';
@@ -377,7 +400,10 @@ function runAllTests() {
 		Test1,
 		Test2,
 		Test3,
+		Test4NoLight,
 		Test4,
+		Test5,
+		Test6
 	]);
 }
 
