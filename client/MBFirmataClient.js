@@ -54,6 +54,10 @@ class MicrobitFirmataClient {
 		this.analogChannel = new Array(16).fill(0);
 		this.eventListeners = new Array();
 		this.updateListeners = new Array();
+
+		// statistics:
+		this.analogUpdateCount = 0;
+		this.channelUpdateCounts = new Array(16).fill(0);
 	}
 
 	addConstants() {
@@ -294,6 +298,11 @@ class MicrobitFirmataClient {
 	receivedAnalogUpdate(chan, value) {
 		if (value > 8191) value = value - 16384; // negative value (14-bits 2-completement)
 		this.analogChannel[chan] = value;
+
+		// update stats:
+		this.analogUpdateCount++;
+		this.channelUpdateCounts[chan]++;
+
 		for (var f of this.updateListeners) f.call(); // notify all update listeners
 	}
 
@@ -441,6 +450,14 @@ class MicrobitFirmataClient {
 		if ((pinNum < 0) || (pinNum > 20)) return;
 		var port = pinNum >> 3;
 		this.myPort.write([this.STREAM_DIGITAL | port, 0]);
+	}
+
+	clearChannelData() {
+		// Reset analog channel values and statistics.
+
+		this.analogChannel.fill(0);
+		this.analogUpdateCount = 0; // statistic: total number of analog updates received
+		this.channelUpdateCounts.fill(0); // statistic: number of updates received for each analog channel
 	}
 
 	streamAnalogChannel(chan) {
