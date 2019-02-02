@@ -42,7 +42,7 @@ class MicrobitFirmataClient {
 		this.inbuf = new Uint8Array(1000);
 		this.inbufCount = 0;
 
-		this.boardSerialNumber = '';
+		this.boardVersion = '';
 		this.firmataVersion = '';
 		this.firmwareVersion = '';
 
@@ -134,6 +134,8 @@ class MicrobitFirmataClient {
 	}
 
 	setSerialPort(port) {
+		// Use the given port. Assume the port has been opened by the caller.
+
 		function dataReceived(data) {
 			if ((this.inbufCount + data.length) < this.inbuf.length) {
 				this.inbuf.set(data, this.inbufCount);
@@ -143,25 +145,26 @@ class MicrobitFirmataClient {
 		}
 		this.myPort = port;
 		this.myPort.on('data', dataReceived.bind(this));
-		this.getFirmataVersion();
-		this.getFirmwareVersion();
+		this.requestFirmataVersion();
+		this.requestFirmwareVersion();
 
 		// get the board serial number (used to determine board version)
-		this.boardSerialNumber = '';
+		this.boardVersion = '';
 		serialport.list()
 		.then((ports) => {
 			for (var i = 0; i < ports.length; i++) {
 				var p = ports[i];
 				if ((p.comName == this.myPort.path)) {
-					this.boardSerialNumber = p.serialNumber;
+					this.boardVersion = this.boardVersionFromSerialNumber(p.serialNumber);
 				}
 			}
 			return null;
 		})
-
 	}
 
 	disconnect() {
+		// Close and discard the serial port.
+
 		if (this.myPort) {
 			console.log("Closing", this.myPort.path);
 			this.myPort.close();
@@ -169,18 +172,26 @@ class MicrobitFirmataClient {
 		}
 	}
 
-	// Board Version
+	// Internal: Connecting/Disconnecting Support
 
-	boardVersion() {
-		// The board version can be determined from the USB device serial number.
+	boardVersionFromSerialNumber(usbSerialNumber) {
+		// The micro:bit board version can be determined from the USB device serial number.
 		// See https://support.microbit.org/support/solutions/articles/19000084312-micro-bit-motion-sensor-hardware-changes-for-editor-developers
-		var boardID = this.boardSerialNumber.slice(0, 4);
-		if ('9900' == boardID) return 'v1.3';
-		if ('9901' == boardID) return 'v1.5';
+		var id = usbSerialNumber.slice(0, 4);
+		if ('9900' == id) return '1.3';
+		if ('9901' == id) return '1.5';
 		return 'unrecognized board';
 	}
 
-	// Process Firmata Messages
+	requestFirmataVersion() {
+		this.myPort.write([this.FIRMATA_VERSION, 0, 0]);
+	}
+
+	requestFirmwareVersion() {
+		this.myPort.write([this.SYSEX_START, this.REPORT_FIRMWARE, this.SYSEX_END]);
+	}
+
+	// Internal: Parse Incoming Firmata Messages
 
 	processFirmatMessages() {
 		// Process and remove all complete Firmata messages in inbuf.
@@ -193,7 +204,7 @@ class MicrobitFirmataClient {
 				this.inbufCount = 0;
 				return;
 			}
-			var skipBytes = this.dispatchCommandAt(cmdStart);
+			var skipBytes = this.dispatchCommand(cmdStart);
 			if (skipBytes < 0) {
 				// command at cmdStart is incomplete: remove processed messages and exit
 				if (0 == cmdStart) return; // cmd is already at start of inbuf
@@ -213,7 +224,7 @@ class MicrobitFirmataClient {
 		return -1;
 	}
 
-	dispatchCommandAt(cmdStart) {
+	dispatchCommand(cmdStart) {
 		// Attempt to process the command starting at the given index in inbuf.
 		// If the command is incomplete, return -1.
 		// Otherwise, process it and return the number of bytes in the entire command.
@@ -269,7 +280,7 @@ class MicrobitFirmataClient {
 		}
 	}
 
-	// Handling Messages from the micro:bit
+	// Internal: Handling Messages from the micro:bit
 
 	receivedFirmataVersion(major, minor) {
 		this.firmataVersion = 'Firmata Protocol ' + major + '.' + minor;
@@ -339,16 +350,6 @@ class MicrobitFirmataClient {
 
 		 // notify event listeners
 		for (var f of this.eventListeners) f.call(null, sourceID, eventID);
-	}
-
-	// Version Commands
-
-	getFirmataVersion() {
-		this.myPort.write([this.FIRMATA_VERSION, 0, 0]);
-	}
-
-	getFirmwareVersion() {
-		this.myPort.write([this.SYSEX_START, this.REPORT_FIRMWARE, this.SYSEX_END]);
 	}
 
 	// Display Commands
@@ -507,6 +508,13 @@ class MicrobitFirmataClient {
 		// Add a listener function (with no arguments) called when sensor or pin updates arrive.
 
 		this.updateListeners.push(updateListenerFunction);
+	}
+
+	removeAllFirmataListeners() {
+		// Remove all event and update listeners. Used by test suite.
+
+		this.eventListeners = [];
+		this.updateListeners = [];
 	}
 
 } // end class MicrobitFirmataClient
