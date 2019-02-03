@@ -1,27 +1,29 @@
 ## Firmata for the BBC micro:bit
 
-This project consists of a Firmata firmware implementation (written in C++ and based on the
-Lancaster DAL and mbed libraries) that is installed in a BBC micro:bit plus a client
-class written in Javascript that runs in Node.js and communicates with the micro:bit
-over a USB-serial connection.
+Firmata is a serial protocol that allows a host computer to interact with a microcontroller.
+This BBC micro:bit version of Firmata supports all the core Firmata 2.6 protocol commands,
+allowing the host computer, or client, to perform digital and analog input and output
+operations on the micro:bit's pins. Firmata extension messages allow the client
+to manipulate the micro:bit display, receive events from its buttons and
+accelerometer, and read data from it's built-in sensors.
+
+The Firmata protocol defines many optional extensions for features such as servo motors
+and i2c communications. Those optional Firmata features  are not currently supported,
+but could be added later.
+
+This project has two parts: (1) the Firmata firmware (written in C++ and based on
+the Lancaster DAL and mbed libraries) that gets installed in a BBC micro:bit and
+(2) a client class written in Javascript that runs in Node.js and communicates with
+the micro:bit over a USB-serial connection.
 
 A precompiled .hex file is provided for easy firmware installation (so you don't need
 to compile it yourself) and a Javascript test suite is provided to test and demonstrate
 the system.
 
-The basic Firmata features are extended with a set of micro:bit-specific commands
-(implemented as Firmata sysex messages) to control the micro:bit display, I/O pins,
-and radio. Similarly, Firmata extensions report micro:bit DAL button, motion, and
-radio events and support streaming accelerometer, magenetometer, temperature,
-and light sensor data.
-
-Optional Firmata extensions for features such as servo motors and i2c communications
-are not currently supported.
-
 ### Installing Firmata on your BBC micro:bit
 
 To install the Firmata firmware, plug in your BBC micro:bit, then drag and drop
-the most recent .hex file from the "precompiled" folder (e.g. microbit-firmata.v0.5.hex)
+the most recent .hex file from the **precompiled** folder (e.g. microbit-firmata-v0.8.hex)
 onto the micro:bit's virtual USB drive. The yellow light will flash for a few seconds
 as the firmware loads. When it stops, the Firmata firmware is installed.
 
@@ -81,9 +83,21 @@ You can speed that up by specifying a delay parameter:
 
 The default delay is 120, so 40 is three times faster than normal.
 
-### Going Further
+### Organization and Additional Documentation
 
-Additional markdown files describe the entire client API and the firmware in more detail.
+The **client** folder contains Javascript code for the Firmata client class that
+runs in Node.js. This folder also contains the micro:bit Firmata test suite.
+Besides confirming that Firmata works, the test suite is a handy source of code
+you can copy and modify for use in your own applications.
+
+The **firmware** folder contains the C++ source code for Firmata firmware that runs in
+the micro:bit. It's easier to use the precompiled .hex file than to compile from source.
+
+The **precompiled** folder contains precompiled .hex files for the latest versions of
+the firmware.
+
+Additional markdown files in these folders document the client API, the micro:bit
+extensions to the Firmata protocol, and the firmware architecture and implementation.
 
 ### License
 
