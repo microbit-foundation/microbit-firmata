@@ -163,3 +163,22 @@ six input pins and its built-in sensors (e.g. accelerometer).
 		Set the number of milliseconds between analog channel updates (1-16383).
 		Defaults to 100 milliseconds (10 updates/sec) when Firmata is started.</dd>
 </dl>
+
+### Digital and Analog Outputs
+
+<dl>
+	<dt>setDigitalOutput(pinNum, turnOn)</dt><dd>
+		Make the given pin an output and turn it off (0 volts) or on (3.3 volts)
+		based on the boolean turnOn parameter.
+		This can be used, for example, to turn an LED on or off.</dd>
+	<dt>setAnalogOutput(pinNum, level)</dt><dd>
+		Start outputing a simulated analog voltage level on the given pin,
+		where level (0-1023) maps to a simulated voltage of 0 to 3.3 volts.
+		Since micro:bit pins can only be on or off, the voltage level is simulated
+		using "pulse width modulation" (PWM). That is, the pin is turned and off
+		rapidly, using the level to determine what fraction of time the pin is on.
+		PWM can be used, for example, to control the brightness of an LED.</dd>
+	<dt>turnOffOutput(pinNum)</dt><dd>
+		Turn off either the digital or analog output of the given pin.
+		(The pin reverts to being an input pin with no pullup.)</dd>
+</dl>

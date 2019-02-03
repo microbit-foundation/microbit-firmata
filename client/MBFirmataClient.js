@@ -79,6 +79,7 @@ class MicrobitFirmataClient {
 
 		// Firamata Sysex Messages
 
+		this.EXTENDED_ANALOG_WRITE		= 0x6F; // analog write (PWM, Servo, etc) to any pin
 		this.REPORT_FIRMWARE			= 0x79; // request/report firmware version and name
 		this.SAMPLING_INTERVAL			= 0x7A; // set msecs between streamed analog samples
 
@@ -517,6 +518,41 @@ class MicrobitFirmataClient {
 
 		this.eventListeners = [];
 		this.updateListeners = [];
+	}
+
+	// Digital and Analog Outputs
+
+	setDigitalOutput(pinNum, turnOn) {
+		// Make the given pin an output and turn it off (0 volts) or on (3.3 volts)
+		// based on the boolean turnOn parameter.
+		// This can be used, for example, to turn an LED on or off.
+
+		if ((pinNum < 0) || (pinNum > 20)) return;
+		this.myPort.write([this.SET_PIN_MODE, pinNum, this.DIGITAL_OUTPUT]);
+		this.myPort.write([this.SET_DIGITAL_PIN, pinNum, (turnOn ? 1 : 0)]);
+	}
+
+	setAnalogOutput(pinNum, level) {
+		// Output a simulated analog voltage level on the given pin,
+		// where level (0-1023) maps to a simulated voltage of 0 to 3.3 volts.
+		// Since micro:bit pins can only be on or off, the voltage level is simulated
+		// using "pulse width modulation" (PWM). That is, the pin is turned and off
+		// rapidly, using the level to determine what fraction of time the pin is on.
+		// PWM can be used, for example, to control the brightness of an LED.
+
+		if ((pinNum < 0) || (pinNum > 20)) return;
+		this.myPort.write([this.SET_PIN_MODE, pinNum, this.PWM]);
+		this.myPort.write([this.SYSEX_START, this.EXTENDED_ANALOG_WRITE,
+			pinNum, (level & 0x7F), ((level >> 7) & 0x7F),
+			this.SYSEX_END]);
+	}
+
+	turnOffOutput(pinNum) {
+		// Turn off either the digital or analog output of the given pin.
+		// (The pin reverts to being an input pin with no pullup.)
+
+		if ((pinNum < 0) || (pinNum > 20)) return;
+		this.myPort.write([this.SET_PIN_MODE, pinNum, this.DIGITAL_INPUT]);
 	}
 
 } // end class MicrobitFirmataClient
