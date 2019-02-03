@@ -417,8 +417,8 @@ class MicrobitFirmataClient {
 		this.myPort.write([this.SYSEX_END]);
 	}
 
-	scrollNumber(n, delay) {
-		// Scroll the given 32-bit integer value across the display with the given delay.
+	scrollInteger(n, delay) {
+		// Scroll the given integer value across the display with the given delay.
 		// Omit the delay parameter to use the default scroll speed.
 		// Note: 32-bit integer is transmitted as five 7-bit data bytes.
 

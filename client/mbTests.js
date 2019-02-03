@@ -136,6 +136,7 @@ class ConnectivityTest {
 	}
 	step() {
 		if ((mb.firmataVersion.length > 0) && (mb.firmwareVersion.length > 0)) {
+			console.log('Micro:bit hardware', mb.boardVersion);
 			console.log(mb.firmataVersion);
 			console.log(mb.firmwareVersion);
 			return 'ok'; // got version
@@ -163,7 +164,7 @@ class Test1 {
 class Test2 {
 	testName() { return 'Scroll number'; }
 	constructor() {
-		mb.scrollNumber(-123, 80);
+		mb.scrollInteger(-123, 80);
 	}
 	step() {
 		return (!mb.isScrolling) ? 'ok' : '';
