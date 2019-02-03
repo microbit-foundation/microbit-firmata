@@ -14,11 +14,9 @@ to a micro:bit and opens it.
 	<dt>connect()</dt>
 		<dd>Connect to the board.
 		Scan all serial ports to find one with a micro:bit connected and opens that, if found.</dd>
-
 	<dt>setSerialPort(port)</dt>
 		<dd>Alternative to connect() that allows the client to supply an open serial port.
 		Used by clients that  do their own serial port management.</dd>
-
 	<dt>disconnect()</dt>
 		<dd>Close and discard the serial port. Seldom needed.</dd>
 </dl>
@@ -30,10 +28,8 @@ Several Firmata Client properties provide version information.
 <dl>
 	<dt>boardVersion</dt>
 		<dd>The micro:bit hardware version (currently either 1.3 or 1.5).</dd>
-
 	<dt>firmataVersion</dt>
 		<dd>Version of Firmata protocol used. Unlikely to change.</dd>
-
 	<dt>firmwareVersion</dt>
 		<dd>Firmata firmware version. Includes DAL, mbed library, and soft device versions.</dd>
 </dl>
@@ -50,12 +46,10 @@ the displayPlot() method.
 		<dd>Scroll the given text across the display. The optional delay parameter
 		controls the scroll speed, with smaller numbers resulting in faster speeds.
 		The default value is 120.</dd>
-
 	<dt>scrollInteger(number, delay)</dt>
 		<dd>Scroll the given integer across the display. The optional delay parameter
 		controls the scroll speed, with smaller numbers resulting in faster speeds.
 		The default value is 120.</dd>
-
 	<dt>isScrolling</dt>
 		<dd>Property. True while text is actively scrolling across the display.</dd>
 </dl>
@@ -81,11 +75,9 @@ touch events -- I/O pins 0-2.
 	<dt>addFirmataEventListener(eventListenerFunction)</dt>
 		<dd>Add a listener function to handle micro:bit DAL events.
 		the function arguments are the sourceID and eventID (both numbers).</dd>
-
 	<dt>addFirmataUpdateListener(updateListenerFunction)</dt>
 		<dd>Add a listener function (with no arguments) called when sensor
 		or pin updates arrive.</dd>
-
 	<dt>removeAllFirmataListeners()</dt>
 		<dd>Remove all event and update listeners. Used by test suite.</dd>
 </dl>
