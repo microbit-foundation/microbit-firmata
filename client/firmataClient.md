@@ -124,25 +124,6 @@ power pins, not I/O pins. Pins 0-2 have large round holes to allow easy connecti
 using alligagor clips; the other pins are available via the edge-connector. Some of the
 edge-connector pins are also used by the display. Disable the display to use those pins.
 
-### Pin Modes
-
-The following pin mode constants are available as properties:
-
-<dl>
-	<dt>DIGITAL_INPUT (0)</dt><dd>
-		Digital input with neither pull-up nor pull-down resistor enabled.</dd>
-	<dt>DIGITAL_OUTPUT (1)</dt><dd>
-	<dt>ANALOG_INPUT (2)</dt><dd>
-		Only pins 0-4 and 10 support analog input.</dd>
-	<dt>PWM	(3)</dt><dd>
-		At most three pins can be used as PWM outputs.</dd>
-	<dt>INPUT_PULLUP (11)</dt><dd>
-		Digital input with internal pull-up resistor enabled.</dd>
-	<dt>INPUT_PULLDOWN (15)</dt><dd>
-		Digital input with internal pull-down resistor enabled.
-		This mode is a micro:bit-specific Firmata extension.</dd>
-</dl>
-
 ### Digital Pins
 
 To use a pin as a digital input, first call trackDigitalPin(). This will cause Firmata
@@ -155,8 +136,8 @@ one state change per millisecond) cannot be tracked reliably.
 		Property. An array of 21 boolean values representing the current state of each pin.</dd>
 	<dt>trackDigitalPin(pinNum, optionalMode)</dt><dd>
 		Start tracking the given pin as a digital input. The optional mode can be
-		DIGITAL_INPUT (0), INPUT_PULLUP (11), or INPUT_PULLDOWN (15).
-		It defaults to DIGITAL_INPUT (i.e. no pull up or down resistor)</dd>
+		0 (no pullup or pulldown), 1 (pullup resistor), or 2 (pulldown resistor).
+		It defaults to 0.</dd>
 	<dt>stopTrackingDigitalPin(pinNum)</dt><dd>
 		Stop tracking the given pin as a digital input.</dd>
 </dl>

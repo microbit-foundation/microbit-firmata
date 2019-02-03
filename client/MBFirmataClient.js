@@ -434,13 +434,15 @@ class MicrobitFirmataClient {
 
 	trackDigitalPin(pinNum, optionalMode) {
 		// Start tracking the given pin as a digital input.
+		// The optional mode can be 0 (no pullup or pulldown), 1 (pullup resistor),
+		// or 2 (pulldown resistor). It defaults to 0.
 
 		if ((pinNum < 0) || (pinNum > 20)) return;
 		var port = pinNum >> 3;
-		var mode = this.INPUT_PULLUP;
-		if ((optionalMode == this.INPUT_PULLDOWN) || (optionalMode == this.INPUT_PULLUP)) {
-			mode = optionalMode;
-		}
+		var mode = this.DIGITAL_INPUT; // default
+		if (0 == optionalMode) mode = this.DIGITAL_INPUT;
+		if (1 == optionalMode) mode = this.INPUT_PULLUP;
+		if (2 == optionalMode) mode = this.INPUT_PULLDOWN;
 		this.myPort.write([this.SET_PIN_MODE, pinNum, mode]);
 		this.myPort.write([this.STREAM_DIGITAL | port, 1]);
 	}
