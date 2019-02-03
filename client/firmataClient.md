@@ -152,7 +152,6 @@ one state change per millisecond) cannot be tracked reliably.
 <dl>
 	<dt>digitalInput</dt><dd>
 		Property. An array of 21 boolean values representing the current state of each pin.</dd>
-
 	<dt>trackDigitalPin(pinNum, optionalMode)</dt><dd>
 		Start tracking the given pin as a digital input. The optional mode can be
 		DIGITAL_INPUT (0), INPUT_PULLUP (11), or INPUT_PULLDOWN (15).
