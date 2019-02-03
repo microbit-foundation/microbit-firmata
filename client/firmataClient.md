@@ -14,11 +14,9 @@ to a micro:bit and opens it.
 	<dt>connect()</dt><dd>
 		Connect to the board.
 		Scan all serial ports to find one with a micro:bit connected and opens that, if found.</dd>
-
 	<dt>setSerialPort(port)</dt><dd>
 		Alternative to connect() that allows the client to supply an open serial port.
 		Used by clients that  do their own serial port management.</dd>
-
 	<dt>disconnect()</dt><dd>
 		Close and discard the serial port. Seldom needed.</dd>
 </dl>
@@ -30,10 +28,8 @@ The following properties provide version information:
 <dl>
 	<dt>boardVersion</dt><dd>
 		The micro:bit hardware version (currently either 1.3 or 1.5).</dd>
-
 	<dt>firmataVersion</dt><dd>
 		Version of Firmata protocol used. Unlikely to change.</dd>
-
 	<dt>firmwareVersion</dt><dd>
 		Firmata firmware version. Includes DAL, mbed library, and soft device versions.</dd>
 </dl>
@@ -63,31 +59,24 @@ value from 0 to 255). Indidividual LED's can be controlled with the displayPlot(
 		sensor which, when running monopolizes the A/D converter preventing pins
 		from being used for reliable analog input. Requesting a light sensor value
 		restarts the light sensor.</dd>
-
 	<dt>displayClear()</dt><dd>
 		Clear the display and stop any ongoing animation.</dd>
-
 	<dt>displayShow(useGrayscale, pixels)</dt><dd>
 		Display the given 5x5 image on the display. If useGrayscale is true, pixel values
 		are brightness values in the range 0-255. Otherwise, a zero pixel value means off
 		and non-zero means on. Pixels is an Array of 5-element Arrays.</dd>
-
 	<dt>displayPlot(x, y, brightness)</dt><dd>
 		Set the display pixel at x, y to the given brightness (0-255).</dd>
-
 	<dt>scrollText(string, delay)</dt><dd>
 		Scroll the given text across the display. The optional delay parameter
 		controls the scroll speed, with smaller numbers resulting in faster speeds.
 		The default value is 120.</dd>
-
 	<dt>scrollInteger(number, delay)</dt><dd>
 		Scroll the given integer across the display. The optional delay parameter
 		controls the scroll speed, with smaller numbers resulting in faster speeds.
 		The default value is 120.</dd>
-
 	<dt>isScrolling</dt><dd>
 		Property. True while text is actively scrolling across the display.</dd>
-
 	<dt>isScrolling</dt><dd>
 		Property. True while text is actively scrolling across the display.</dd>
 </dl>
@@ -111,11 +100,9 @@ values has changed).
 	<dt>addFirmataEventListener(eventListenerFunction)</dt><dd>
 		Add a listener function to handle micro:bit DAL events.
 		The arguments of the function are the event sourceID and eventID (both numbers).</dd>
-
 	<dt>addFirmataUpdateListener(updateListenerFunction)</dt><dd>
 		Add a listener function (with no arguments) called when sensor
 		or pin updates arrive.</dd>
-
 	<dt>removeAllFirmataListeners()</dt><dd>
 		Remove all event and update listeners. Used by test suite.</dd>
 </dl>
@@ -143,18 +130,13 @@ The following pin mode constants are available as properties:
 <dl>
 	<dt>DIGITAL_INPUT (0)</dt><dd>
 		Digital input with neither pull-up nor pull-down resistor enabled.</dd>
-
 	<dt>DIGITAL_OUTPUT (1)</dt><dd>
-
 	<dt>ANALOG_INPUT (2)</dt><dd>
 		Only pins 0-4 and 10 support analog input.</dd>
-
 	<dt>PWM	(3)</dt><dd>
 		At most three pins can be used as PWM outputs.</dd>
-
 	<dt>INPUT_PULLUP (11)</dt><dd>
 		Digital input with internal pull-up resistor enabled.</dd>
-
 	<dt>INPUT_PULLDOWN (15)</dt><dd>
 		Digital input with internal pull-down resistor enabled.
 		This mode is a micro:bit-specific Firmata extension.</dd>
@@ -175,7 +157,6 @@ one state change per millisecond) cannot be tracked reliably.
 		Start tracking the given pin as a digital input. The optional mode can be
 		DIGITAL_INPUT (0), INPUT_PULLUP (11), or INPUT_PULLDOWN (15).
 		It defaults to DIGITAL_INPUT (i.e. no pull up or down resistor)</dd>
-
 	<dt>stopTrackingDigitalPin(pinNum)</dt><dd>
 		Stop tracking the given pin as a digital input.</dd>
 </dl>
@@ -191,18 +172,13 @@ six input pins and its built-in sensors (e.g. accelerometer).
 		Property. Array containing the latest value of each channel being streamed.
 		The client can register an update function to be notified when new
 		channel data has arrived.</dd>
-
 	<dt>clearChannelData()</dt><dd>
 		Reset all analog channel entries to zero.</dd>
-
 	<dt>streamAnalogChannel(chan)</dt><dd>
 		Start streaming the given analog channel.</dd>
-
 	<dt>stopStreamingAnalogChannel(chan)</dt><dd>
 		Stop streaming the given analog channel.</dd>
-
 	<dt>setAnalogSamplingInterval(samplingMSecs)</dt><dd>
 		Set the number of milliseconds between analog channel updates (1-16383).
 		Defaults to 100 milliseconds (10 updates/sec) when Firmata is started.</dd>
 </dl>
-
