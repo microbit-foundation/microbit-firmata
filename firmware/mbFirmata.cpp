@@ -75,6 +75,8 @@ static uint16_t firmataPinState[PIN_COUNT];
 static uint8_t isStreamingChannel[16];
 static uint8_t isStreamingPort[16];
 
+static int displayEnabled = true;
+
 static int samplingInterval = 100;
 static int lastSampleTime = 0;
 
@@ -209,7 +211,7 @@ static void reportPinCapabilities() {
 	send2Bytes(SYSEX_START, CAPABILITY_RESPONSE);
 	for (int p = 0; p < PIN_COUNT; p++) {
 		// send a sequence of (pin mode, resolution) pairs
-		if ((p < 5) || (10 == p)) {
+		if ((p < 5) || (10 == p) || (11 == p)) { // analog pins + light sensor channel
 			send2Bytes(DIGITAL_INPUT, 1);
 			send2Bytes(DIGITAL_OUTPUT, 1);
 			send2Bytes(ANALOG_INPUT, 10);
@@ -242,8 +244,12 @@ static void setPinMode(int pin, int mode) {
 		return;
 	}
 	if (ANALOG_INPUT == mode) {
-		if ((pin > 4) && (pin != 10)) return;
+		if (11 == pin) firmataPinMode[pin] = ANALOG_INPUT; // enable the light sensor
+		if ((pin > 4) && (pin != 10)) return; // pin is not analog capable
 	}
+
+	if (displayEnabled && (pin > 2)) return; // display uses most pins except 0-2
+
 	firmataPinMode[pin] = mode;
 	firmataPinState[pin] = UNKNOWN_PIN_STATE;
 
@@ -284,6 +290,8 @@ static void setDigitalPin(int pin, int value) {
 
 	if ((pin < 0) || (pin >= PIN_COUNT)) return;
 	if (DIGITAL_OUTPUT != firmataPinMode[pin]) return;
+	if (displayEnabled && (pin > 2)) return; // display uses most pins except 0-2
+
 	firmataPinState[pin] = value ? 1 : 0;
 
 	// set actual pin output
@@ -340,9 +348,14 @@ static void extendedAnalogWrite(int sysexStart, int argBytes) {
 static void streamAnalogChannel(uint8_t chan, uint8_t isOn) {
 	// Turn streaming of the given analog channel on or off.
 
-	if (chan < 16) isStreamingChannel[chan] = isOn;
+	if (chan > 15) return;
+	isStreamingChannel[chan] = isOn;
 	if (chan < 6) {
 		int pin = (5 == chan) ? 10 : chan; // channels 0-4 are pins 0-4; channel 5 is pin 10
+		if (displayEnabled && (pin > 2)) { // display uses pins 3-5
+			isStreamingChannel[chan] = false;
+			return;
+		}
 		#ifndef ARDUINO_BBC_MICROBIT
 			io.pin[pin].getDigitalValue(); // put in digital read mode
 			io.pin[pin].setPull(PullNone); // turn off pullup/down
@@ -484,14 +497,14 @@ static void setDisplayEnable(int sysexStart, int argBytes) {
 	// until the next time a light sensor value is requested.
 
 	if (argBytes < 1) return;
-	int enableDisplay = inbuf[sysexStart + 1];
+	displayEnabled = (inbuf[sysexStart + 1] != 0);
 
 	display.stopAnimation();
 	display.clear();
 	display.disable();
 	display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE); // disable light sensing
 	analogDisable(); // in case light sensor was in use
-	if (enableDisplay) display.enable(); // re-enable
+	if (displayEnabled) display.enable(); // re-enable
 }
 
 #endif
@@ -676,7 +689,9 @@ static int analogChannelValue(uint8_t chan) {
 	if (15 == chan) return 403; // compass z
 #else
 	if (chan < 6) {
+		if (displayEnabled && (chan > 2)) return 0; // display uses most pins except 0-2
 		int pin = (5 == chan) ? 10 : chan; // channels 0-4 are pins 0-4; channel 5 is pin 10
+		if (ANALOG_INPUT != firmataPinMode[pin]) return 0;
 		return io.pin[pin].getAnalogValue();
 	}
 	if (6 == chan) return 0;
@@ -684,7 +699,14 @@ static int analogChannelValue(uint8_t chan) {
 	if (8 == chan) return accelerometer.getX(); // accelerometer x
 	if (9 == chan) return accelerometer.getY(); // accelerometer y
 	if (10 == chan) return accelerometer.getZ(); // accelerometer z
-	if (11 == chan) return display.readLightLevel(); // light sensor
+	if (11 == chan) {
+		// The following line is a workaround for the fact that the light sensor monopolizes
+		// the A/D converter preventing correct analog values from being read. So, the light
+		// sensor is disabled at startup and must be enabled by setting channel 11 to analog
+		// input mode.
+		if (ANALOG_INPUT != firmataPinMode[11]) return 0;
+		return displayEnabled ? display.readLightLevel() : 0; // light sensor
+	}
 	if (12 == chan) return thermometer.getTemperature(); // temperature sensor
 	if (13 == chan) return compass.getX() >> 5; // compass x
 	if (14 == chan) return compass.getY() >> 5; // compass y
@@ -702,6 +724,10 @@ static void streamSensors() {
 
 	for (int chan = 0; chan < 16; chan++) {
 		if (isStreamingChannel[chan]) {
+			if (chan < 6) { // analog pin
+				int pin = (chan == 5) ? 10 : chan;
+				if (firmataPinMode[pin] != ANALOG_INPUT) continue; // pin not in analog mode
+			}
 			int analogValue = analogChannelValue(chan);
 			send3Bytes(ANALOG_UPDATE | chan, analogValue & 0x7F, (analogValue >> 7) & 0x7F);
 		}
