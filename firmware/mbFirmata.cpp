@@ -75,7 +75,8 @@ static uint16_t firmataPinState[PIN_COUNT];
 static uint8_t isStreamingChannel[16];
 static uint8_t isStreamingPort[16];
 
-static int displayEnabled = true;
+static uint8_t displayEnabled = true;
+static uint8_t lightSensorEnabled = false;
 
 static int samplingInterval = 100;
 static int lastSampleTime = 0;
@@ -199,9 +200,8 @@ static void systemReset() {
 static void reportAnalogMapping() {
 	// Report that the analog iput pins are P0-P4 and P10.
 
-	int i;
 	send2Bytes(SYSEX_START, ANALOG_MAPPING_RESPONSE);
-	for (i = 0; i <= 15; i++) sendByte(i);
+	for (int i = 0; i <= 15; i++) sendByte(i);
 	sendByte(SYSEX_END);
 }
 
@@ -211,7 +211,7 @@ static void reportPinCapabilities() {
 	send2Bytes(SYSEX_START, CAPABILITY_RESPONSE);
 	for (int p = 0; p < PIN_COUNT; p++) {
 		// send a sequence of (pin mode, resolution) pairs
-		if ((p < 5) || (10 == p) || (11 == p)) { // analog pins + light sensor channel
+		if ((p < 6) || (11 == p)) { // analog pins + light sensor channel
 			send2Bytes(DIGITAL_INPUT, 1);
 			send2Bytes(DIGITAL_OUTPUT, 1);
 			send2Bytes(ANALOG_INPUT, 10);
@@ -244,7 +244,7 @@ static void setPinMode(int pin, int mode) {
 		return;
 	}
 	if (ANALOG_INPUT == mode) {
-		if (11 == pin) firmataPinMode[pin] = ANALOG_INPUT; // enable the light sensor
+		if (11 == pin) lightSensorEnabled = true; // enable the light sensor
 		if ((pin > 4) && (pin != 10)) return; // pin is not analog capable
 	}
 
@@ -384,7 +384,7 @@ static void display_plot(int sysexStart, int argBytes) { }
 static void scrollString(int sysexStart, int argBytes) { }
 static void scrollNumber(int sysexStart, int argBytes) { }
 static void setTouchMode(int sysexStart, int argBytes) { }
-static void setDisplayEnable(int sysexStart, int argBytes) { }
+static void setDisplayEnable(int isEnabled) { }
 
 #else
 
@@ -490,24 +490,34 @@ static void setTouchMode(int sysexStart, int argBytes) {
 	}
 }
 
-static void setDisplayEnable(int sysexStart, int argBytes) {
+static void setDisplayEnable(int isEnabled) {
 	// Disable or re-enable the display. (The display is initially enabled at startup.)
 	// When the display is disabled, pins 0-5 can be used for other purposes.
 	// Re-enabling the display (even when already enabled) turns off light sensing
 	// until the next time a light sensor value is requested.
 
-	if (argBytes < 1) return;
-	displayEnabled = (inbuf[sysexStart + 1] != 0);
-
+	// turn off display
 	display.stopAnimation();
 	display.clear();
 	display.disable();
-	display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE); // disable light sensing
+
+	// disable light sensing
+	display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE);
 	analogDisable(); // in case light sensor was in use
-	if (displayEnabled) display.enable(); // re-enable
+	lightSensorEnabled = false; // can reenable by setting analog channel 11 to analog input
+
+	// re-enable if isEnabled is true
+	displayEnabled = isEnabled;
+	if (displayEnabled) display.enable();
 }
 
 #endif
+
+static void enableDisplay(int sysexStart, int argBytes) {
+	if (argBytes < 1) return;
+	int isEnabled = (inbuf[sysexStart + 1] != 0);
+	setDisplayEnable(isEnabled);
+}
 
 // MIDI parsing
 
@@ -533,7 +543,7 @@ static void dispatchSysexCommand(int sysexStart, int argBytes) {
 		setTouchMode(sysexStart, argBytes);
 		break;
 	case MB_DISPLAY_ENABLE:
-		setDisplayEnable(sysexStart, argBytes);
+		enableDisplay(sysexStart, argBytes);
 		break;
 	case ANALOG_MAPPING_QUERY:
 		reportAnalogMapping();
@@ -700,12 +710,13 @@ static int analogChannelValue(uint8_t chan) {
 	if (9 == chan) return accelerometer.getY(); // accelerometer y
 	if (10 == chan) return accelerometer.getZ(); // accelerometer z
 	if (11 == chan) {
-		// The following line is a workaround for the fact that the light sensor monopolizes
-		// the A/D converter preventing correct analog values from being read. So, the light
-		// sensor is disabled at startup and must be enabled by setting channel 11 to analog
-		// input mode.
-		if (ANALOG_INPUT != firmataPinMode[11]) return 0;
-		return displayEnabled ? display.readLightLevel() : 0; // light sensor
+		// When enabled, the light sensor monopolizes the A/D converter, preventing correct
+		// analog values from being read from input pins. Thus, the light sensor is disabled
+		// at startup and must be enabled by setting channel 11 to analog input mode. It can
+		// be disabled again by invoking the setDisplayEnable command. (Any change to the
+		// display enabled state disables the light sensor until it explicitly re-enabled.)
+
+		return (displayEnabled && lightSensorEnabled) ? display.readLightLevel() : 0;
 	}
 	if (12 == chan) return thermometer.getTemperature(); // temperature sensor
 	if (13 == chan) return compass.getX() >> 5; // compass x
@@ -782,6 +793,8 @@ void initFirmata() {
 
 	systemReset();
 	registerEventListeners();
+	setDisplayEnable(false);
+	reportFirmataVersion();
 }
 
 void stepFirmata() {
