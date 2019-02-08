@@ -154,7 +154,7 @@ class ConnectivityTest {
 class Test1 {
 	testName() { return 'Scroll string'; }
 	constructor() {
-		mb.scrollString('test', 80);
+		mb.scrollString('TEST', 80);
 	}
 	step() {
 		return (!mb.isScrolling) ? 'ok' : '';
@@ -210,22 +210,22 @@ class Test3 {
 			}
 		}
 		if (2 == this.phase) {
+			mb.displayShow(true, [
+				[10,  10,  10,  10, 10],
+				[10, 100, 100, 100, 10],
+				[10, 100, 255, 100, 10],
+				[10, 100, 100, 100, 10],
+				[10,  10,  10,  10, 10]]);
+			timerStart();
+			this.phase = 3;
+		}
+		if ((3 == this.phase) && (timerMSecs() > 1000)) {
 			mb.displayShow(false, [
 				[0, 1, 0, 1, 0],
 				[0, 1, 0, 1, 0],
 				[0, 0, 0, 0, 0],
 				[1, 0, 0, 0, 1],
 				[0, 1, 1, 1, 0]]);
-			timerStart();
-			this.phase = 3;
-		}
-		if ((3 == this.phase) && (timerMSecs() > 1000)) {
-			mb.displayShow(true, [
-				[255, 255, 255, 255, 255],
-				[255, 100, 100, 100, 255],
-				[255,  50,   5,  50, 255],
-				[255, 100, 100, 100, 255],
-				[255, 255, 255, 255, 255]]);
 			timerStart();
 			this.phase = 4;
 		}
@@ -242,7 +242,9 @@ class Test4 {
 	constructor() {
 		keyPressed = false;
 		this.firstTime = true;
+		for (var pin = 0; pin < 3; pin++) mb.setPinMode(pin, mb.ANALOG_INPUT);
 		mb.enableDisplay(true);
+		mb.enableLightSensor();
 	}
 	step() {
 		if (this.firstTime) {
@@ -291,6 +293,7 @@ class Test4NoLight {
 	constructor() {
 		keyPressed = false;
 		this.firstTime = true;
+		for (var pin = 0; pin < 3; pin++) mb.setPinMode(pin, mb.ANALOG_INPUT);
 		mb.enableDisplay(false);
 	}
 	step() {
@@ -336,7 +339,7 @@ class Test4NoLight {
 }
 
 class Test5 {
-	testName() { return 'Stress test: one channel'; }
+	testName() { return 'Stress test: 1 channel'; }
 	constructor() {
 		mb.enableDisplay(false);
 		mb.setAnalogSamplingInterval(1);
@@ -355,7 +358,10 @@ class Test5 {
 		}
 		if (msecs > 1100) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
-			console.log('total: ', mb.analogUpdateCount, 'samples in', this.samplingTime, 'msecs');
+			var bytesPerSec = Math.round((3 * mb.analogUpdateCount * 1000) / this.samplingTime);
+			console.log('total: ', mb.analogUpdateCount,
+						'samples in', this.samplingTime, 'msecs',
+						('(' + bytesPerSec + ' bytes/sec)'));
 //			console.log(mb.channelUpdateCounts);
 			return 'ok';
 		}
@@ -376,14 +382,17 @@ class Test6 {
 	}
 	step() {
 		var msecs = timerMSecs();
-		if (this.sampling && (msecs > 1000)) {
+		if (this.sampling && (msecs > 1100)) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
 			this.samplingTime = msecs;
 			this.sampling = false;
 		}
-		if (msecs > 1100) {
+		if (msecs > 1500) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
-			console.log('total: ', mb.analogUpdateCount, 'samples in', this.samplingTime, 'msecs');
+			var bytesPerSec = Math.round((3 * mb.analogUpdateCount * 1000) / this.samplingTime);
+			console.log('total: ', mb.analogUpdateCount,
+						'samples in', this.samplingTime, 'msecs',
+						('(' + bytesPerSec + ' bytes/sec)'));
 //			console.log(mb.channelUpdateCounts);
 			return 'ok';
 		}
@@ -391,21 +400,81 @@ class Test6 {
 	}
 }
 
+class Test7 {
+	testName() { return 'Events'; }
+	constructor() {
+		keyPressed = false;
+		mb.streamAnalogChannel(8); // ensure accelerometer is on (xxx make sure defaults to on)
+		mb.addFirmataEventListener(this.gotEvent.bind(this));
+		console.log('Receiving events. Press any key to exit.');
+	}
+	step() {
+		if (keyPressed) {
+			mb.removeAllFirmataListeners();
+			return 'ok';
+		}
+		return '';
+	}
+	gotEvent(sourceID, eventID) {
+		console.log('evt', sourceID, eventID);
+	}
+}
+
+class Test8 {
+	testName() { return 'digital output'; }
+	constructor() {
+		keyPressed = false;
+		this.state0 = false;
+		this.state1 = false;
+		this.state2 = false;
+		this.timer0 = setInterval(this.toggle0.bind(this), 3);
+		this.timer1 = setInterval(this.toggle1.bind(this), 2);
+		this.timer2 = setInterval(this.toggle2.bind(this), 1);
+		console.log('Toggling pins 0, 1, and 2. Connect an LED to see output.');
+	}
+	toggle0() {
+		this.state0 = !this.state0;
+		mb.setDigitalOutput(0, this.state0);
+	}
+	toggle1() {
+		this.state1 = !this.state1;
+		mb.setDigitalOutput(1, this.state1);
+	}
+	toggle2() {
+		this.state2 = !this.state2;
+		mb.setDigitalOutput(2, this.state2);
+	}
+	step() {
+		if (keyPressed) {
+			clearInterval(this.timer0);
+			clearInterval(this.timer1);
+			clearInterval(this.timer2);
+			return '';
+		}
+	}
+	gotEvent(sourceID, eventID) {
+		console.log('evt', sourceID, eventID);
+	}
+}
+
 // Run all tests
 
 function runAllTests() {
-	// Run entire test suite. New tests may be added to the list below.
+	// Run entire test suite.
 
 	runTests([
 		ConnectivityTest,
 		Test1,
 		Test2,
 		Test3,
-		Test4NoLight,
 		Test4,
+		Test4NoLight,
 		Test5,
-		Test6
+		Test6,
+//		Test7,
+//		Test8
 	]);
 }
 
 runAllTests();
+//mb.connect();
