@@ -433,6 +433,11 @@ class MicrobitFirmataClient {
 
 	// Pin and Sensor Channel Commands
 
+	setPinMode(pinNum, mode) {
+		if ((pinNum < 0) || (pinNum > 20)) return;
+		this.myPort.write([this.SET_PIN_MODE, pinNum, mode]);
+	}
+
 	trackDigitalPin(pinNum, optionalMode) {
 		// Start tracking the given pin as a digital input.
 		// The optional mode can be 0 (no pullup or pulldown), 1 (pullup resistor),
@@ -485,6 +490,15 @@ class MicrobitFirmataClient {
 		this.myPort.write([this.SYSEX_START, this.SAMPLING_INTERVAL,
 			samplingMSecs & 0x7F, (samplingMSecs >> 7) & 0x7F,
 			this.SYSEX_END]);
+	}
+
+	enableLightSensor() {
+		// Enable the light sensor.
+		// Note: When running, the light sensor monopolizes the A/D converter, preventing
+		// use of the analog input pins. Thus, the light sensor is disabled by default.
+		// This method can be used to enable it.
+
+		this.myPort.write([this.SET_PIN_MODE, 11, this.ANALOG_INPUT]);
 	}
 
 	setTouchMode(pinNum, touchModeOn) {

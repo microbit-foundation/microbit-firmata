@@ -140,6 +140,10 @@ one state change per millisecond) cannot be tracked reliably.
 		It defaults to 0.</dd>
 	<dt>stopTrackingDigitalPin(pinNum)</dt><dd>
 		Stop tracking the given pin as a digital input.</dd>
+	<dt>setPinMode(pinNum, mode)</dt><dd>
+		Set the given pin to one of the Firmata pin mode constants:
+		DIGITAL_INPUT, INPUT_PULLUP, INPUT_PULLDOWN, DIGITAL_OUTPUT, ANALOG_INPUT, or PWM.</dd>
+</dd>
 </dl>
 
 ### Analog Pins and Sensors
@@ -162,6 +166,11 @@ six input pins and its built-in sensors (e.g. accelerometer).
 	<dt>setAnalogSamplingInterval(samplingMSecs)</dt><dd>
 		Set the number of milliseconds between analog channel updates (1-16383).
 		Defaults to 100 milliseconds (10 updates/sec) when Firmata is started.</dd>
+	<dt>enableLightSensor()</dt><dd>
+		Enable the light sensor.
+		(Note: When running, the light sensor monopolizes the A/D converter, preventing
+		use of the analog input pins, so the light sensor is disabled by default.
+		This method can be used to enable it.)</dd>
 </dl>
 
 ### Digital and Analog Outputs
