@@ -174,11 +174,16 @@ static void reportFirmwareVersion() {
 
 	int major = 0;
 	int minor = 9;
-	ble_version_t bleInfo;
-	sd_ble_version_get(&bleInfo);
 	char s[100];
-	sprintf(s, "[based on DAL %s; mbed %d; softdeviceFWID %d] micro:bit Firmata",
-		microbit_dal_version(), MBED_LIBRARY_VERSION, bleInfo.subversion_number);
+
+	#ifdef ARDUINO_BBC_MICROBIT
+		sprintf(s, "[based on Arduino; no DAL or BLE] micro:bit Firmata");
+	#else
+		ble_version_t bleInfo;
+		sd_ble_version_get(&bleInfo);
+		sprintf(s, "[based on DAL %s; mbed %d; softdeviceFWID %d] micro:bit Firmata",
+			microbit_dal_version(), MBED_LIBRARY_VERSION, bleInfo.subversion_number);
+	#endif
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
 	send2Bytes(major, minor); // firmware version (vs. Firmata protocol version)
@@ -804,7 +809,7 @@ void stepFirmata() {
 
 	#ifndef ARDUINO_BBC_MICROBIT
 		// Note: The following code is essential to avoid overrunning the serial line
-		// and losing or currupting data, A fixed delay works, too, but a delay
+		// and losing or corrupting data, A fixed delay works, too, but a delay
 		// long enough to handle the worst case (streaming 16 channels of analog data
 		// and three digital ports, a total of 3 * 19 = 57 bytes) reduces the maximum
 		// sampling rate for a single channel. This is like a SYNC_SPINWAIT for all
