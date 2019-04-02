@@ -22,17 +22,33 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifdef ARDUINO_BBC_MICROBIT
-  #include <Arduino.h>
+#include <MicroBit.h>
+#include <mbed.h>
+#include <ble.h>
+#include "mbFirmata.h"
+
+// DAL Components
+
+// The USE_SCHEDULER option allows Firmata to coexist with user programs that use the
+// predefined MicroBit object and thus, implicitly, the DAL scheduler. Using the DAL
+// scheduler imposes a minimum sampling interval of 5 milliseconds (even if it set to
+// a lower value), limiting sensor sampling to a maximum of 200 samples/second. Without the
+// scheduler, when connected to a computer than can handle high incoming data rates, Firmata
+// can stream a single sensor channel at just over 1000 samples/sec. That could be useful
+// for high-speed data collection when instrumenting a science experiment. In practice,
+// however, most applications (e.g. controlling a game with the tilt sensor) don't need data
+// rates faster than the screen update rate, around 60 samples/sec.
+
+#define USE_SCHEDULER false
+
+#if USE_SCHEDULER
+
+	// This should be defined in the top-level program
+	extern MicroBit uBit;
+
 #else
-  #include <MicroBit.h>
-  #include <mbed.h>
-  #include <ble.h>
-#endif
 
-#ifndef ARDUINO_BBC_MICROBIT
-
-	// Create DAL components
+	// Create DAL components manually to avoid the DAL scheduler
 
 	MicroBitI2C i2c(I2C_SDA0, I2C_SCL0);
 	MicroBitMessageBus messageBus;
@@ -54,8 +70,6 @@ SOFTWARE.
 		MICROBIT_PIN_P16, /* 17-18 */ MICROBIT_PIN_P19, MICROBIT_PIN_P20);
 
 #endif
-
-#include "mbFirmata.h"
 
 // Variables
 
@@ -83,35 +97,6 @@ static int lastSampleTime = 0;
 
 // Serial I/O
 
-#ifdef ARDUINO_BBC_MICROBIT
-
-static void receiveData() {
-	while (Serial.available() && (inbufCount < IN_BUF_SIZE)) {
-		inbuf[inbufCount++] = Serial.read();
-	}
-}
-
-static void sendByte(uint8_t b) {
-	Serial.write(b);
-}
-
-static void send2Bytes(uint8_t b1, uint8_t b2) {
-	Serial.write(b1);
-	Serial.write(b2);
-}
-
-static void send3Bytes(uint8_t b1, uint8_t b2, uint8_t b3) {
-	Serial.write(b1);
-	Serial.write(b2);
-	Serial.write(b3);
-}
-
-static uint32_t now() { return millis(); }
-
-#else // DAL
-
-extern MicroBit uBit;
-
 static void receiveData() {
 	while (inbufCount < IN_BUF_SIZE) {
 		int byte = serial.read(ASYNC);
@@ -136,8 +121,6 @@ static void send3Bytes(uint8_t b1, uint8_t b2, uint8_t b3) {
 }
 
 static uint32_t now() { return us_ticker_read() / 1000L; }
-
-#endif
 
 // Debugging
 
@@ -176,14 +159,10 @@ static void reportFirmwareVersion() {
 	int minor = 9;
 	char s[100];
 
-	#ifdef ARDUINO_BBC_MICROBIT
-		sprintf(s, "[based on Arduino; no DAL or BLE] micro:bit Firmata");
-	#else
-		ble_version_t bleInfo;
-		sd_ble_version_get(&bleInfo);
-		sprintf(s, "[based on DAL %s; mbed %d; softdeviceFWID %d] micro:bit Firmata",
-			microbit_dal_version(), MBED_LIBRARY_VERSION, bleInfo.subversion_number);
-	#endif
+	ble_version_t bleInfo;
+	sd_ble_version_get(&bleInfo);
+	sprintf(s, "[based on DAL %s; mbed %d; softdeviceFWID %d] micro:bit Firmata",
+		microbit_dal_version(), MBED_LIBRARY_VERSION, bleInfo.subversion_number);
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
 	send2Bytes(major, minor); // firmware version (vs. Firmata protocol version)
@@ -259,34 +238,22 @@ static void setPinMode(int pin, int mode) {
 	firmataPinState[pin] = UNKNOWN_PIN_STATE;
 
 	// set actual pin mode
-	#ifdef ARDUINO_BBC_MICROBIT
-		if ((DIGITAL_OUTPUT == mode) || (PWM == mode)) {
-			pinMode(pin, OUTPUT);
-		} else if (INPUT_PULLUP == mode) {
-			pinMode(pin, INPUT_PULLUP);
-		} else if (INPUT_PULLDOWN == mode) {
-			pinMode(pin, INPUT);
-		} else {
-			pinMode(pin, INPUT);
-		}
-	#else
-		if (DIGITAL_OUTPUT == mode) {
-			firmataPinState[pin] = 0;
-			io.pin[pin].setDigitalValue(0);
-		} else if (PWM == mode) {
-			firmataPinState[pin] = 0;
-			io.pin[pin].setAnalogValue(0);
-		} else if (INPUT_PULLUP == mode) {
-			io.pin[pin].getDigitalValue();
-			io.pin[pin].setPull(PullUp);
-		} else if (INPUT_PULLDOWN == mode) {
-			io.pin[pin].getDigitalValue();
-			io.pin[pin].setPull(PullDown);
-		} else {
-			io.pin[pin].getDigitalValue();
-			io.pin[pin].setPull(PullNone);
-		}
-	#endif
+	if (DIGITAL_OUTPUT == mode) {
+		firmataPinState[pin] = 0;
+		io.pin[pin].setDigitalValue(0);
+	} else if (PWM == mode) {
+		firmataPinState[pin] = 0;
+		io.pin[pin].setAnalogValue(0);
+	} else if (INPUT_PULLUP == mode) {
+		io.pin[pin].getDigitalValue();
+		io.pin[pin].setPull(PullUp);
+	} else if (INPUT_PULLDOWN == mode) {
+		io.pin[pin].getDigitalValue();
+		io.pin[pin].setPull(PullDown);
+	} else {
+		io.pin[pin].getDigitalValue();
+		io.pin[pin].setPull(PullNone);
+	}
 }
 
 static void setDigitalPin(int pin, int value) {
@@ -300,11 +267,7 @@ static void setDigitalPin(int pin, int value) {
 	firmataPinState[pin] = value ? 1 : 0;
 
 	// set actual pin output
-	#ifdef ARDUINO_BBC_MICROBIT
-		digitalWrite(pin, firmataPinState[pin]);
-	#else
-		io.pin[pin].setDigitalValue(firmataPinState[pin]);
-	#endif
+	io.pin[pin].setDigitalValue(firmataPinState[pin]);
 }
 
 static void setDigitalPort(int port, int pinMask) {
@@ -325,11 +288,7 @@ static void setAnalogPin(int pin, int value) {
 	firmataPinState[pin] = value;
 
 	// set actual pin output
-	#ifdef ARDUINO_BBC_MICROBIT
-		analogWrite(pin, value);
-	#else
-		io.pin[pin].setAnalogValue(value);
-	#endif
+	io.pin[pin].setAnalogValue(value);
 }
 
 static void extendedAnalogWrite(int sysexStart, int argBytes) {
@@ -361,11 +320,9 @@ static void streamAnalogChannel(uint8_t chan, uint8_t isOn) {
 			isStreamingChannel[chan] = false;
 			return;
 		}
-		#ifndef ARDUINO_BBC_MICROBIT
-			io.pin[pin].getDigitalValue(); // put in digital read mode
-			io.pin[pin].setPull(PullNone); // turn off pullup/down
-			if (isOn) io.pin[pin].getAnalogValue();
-		#endif
+		io.pin[pin].getDigitalValue(); // put in digital read mode
+		io.pin[pin].setPull(PullNone); // turn off pullup/down
+		if (isOn) io.pin[pin].getAnalogValue();
 	}
 }
 
@@ -380,18 +337,6 @@ static void setSamplingInterval(int msecs) {
 }
 
 // Display Commands
-
-#ifdef ARDUINO_BBC_MICROBIT
-
-static void display_clear() { }
-static void display_show(int sysexStart, int argBytes) { }
-static void display_plot(int sysexStart, int argBytes) { }
-static void scrollString(int sysexStart, int argBytes) { }
-static void scrollNumber(int sysexStart, int argBytes) { }
-static void setTouchMode(int sysexStart, int argBytes) { }
-static void setDisplayEnable(int isEnabled) { }
-
-#else
 
 static void analogDisable() {
 	/* Comment from DAL MicroBitLightSensor.cpp:
@@ -515,8 +460,6 @@ static void setDisplayEnable(int isEnabled) {
 	displayEnabled = isEnabled;
 	if (displayEnabled) display.enable();
 }
-
-#endif
 
 static void enableDisplay(int sysexStart, int argBytes) {
 	if (argBytes < 1) return;
@@ -663,11 +606,7 @@ static void streamDigitalPins() {
 						(INPUT_PULLUP == mode) ||
 						(INPUT_PULLDOWN == mode)) {
 							int oldState = firmataPinState[pin];
-							#ifdef ARDUINO_BBC_MICROBIT
-								int newState = digitalRead(pin);
-							#else
-								int newState = io.pin[pin].getDigitalValue();
-							#endif
+							int newState = io.pin[pin].getDigitalValue();
 							if (newState != oldState) portChanged = true;
 							firmataPinState[pin] = newState;
 							if (newState) bitMask |= (1 << i);
@@ -686,23 +625,6 @@ static int analogChannelValue(uint8_t chan) {
 	// For the micro:bit, sensors such as the accelerometer are mapped to analog channels.
 
 	if (chan > 15) return 0;
-
-#ifdef ARDUINO_BBC_MICROBIT
-	if (chan < 6) {
-		int pin = (5 == chan) ? 10 : chan; // channels 0-4 are pins 0-4; channel 5 is pin 10
-		return analogRead(pin);
-	}
-	if (6 == chan) return 0;
-	if (7 == chan) return 0;
-	if (8 == chan) return 101; // accelerometer x
-	if (9 == chan) return 102; // accelerometer y
-	if (10 == chan) return 103; // accelerometer z
-	if (11 == chan) return 200; // light sensor
-	if (12 == chan) return 300; // temperature sensor
-	if (13 == chan) return 401; // compass x
-	if (14 == chan) return 402; // compass y
-	if (15 == chan) return 403; // compass z
-#else
 	if (chan < 6) {
 		if (displayEnabled && (chan > 2)) return 0; // display uses most pins except 0-2
 		int pin = (5 == chan) ? 10 : chan; // channels 0-4 are pins 0-4; channel 5 is pin 10
@@ -727,7 +649,7 @@ static int analogChannelValue(uint8_t chan) {
 	if (13 == chan) return compass.getX() >> 5; // compass x
 	if (14 == chan) return compass.getY() >> 5; // compass y
 	if (15 == chan) return compass.getZ() >> 5; // compass z
-#endif
+
 	return 0;
 }
 
@@ -752,12 +674,6 @@ static void streamSensors() {
 }
 
 // Events
-
-#ifdef ARDUINO_BBC_MICROBIT
-
-static void registerEventListeners() { } // noop on Arduino
-
-#else
 
 static void onEvent(MicroBitEvent evt) {
 	int source_id = evt.source;
@@ -785,16 +701,12 @@ static void registerEventListeners() {
 	messageBus.listen(MICROBIT_ID_DISPLAY, MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE, onEvent);
 }
 
-#endif
-
 // Entry Points
 
 void initFirmata() {
-	#ifndef ARDUINO_BBC_MICROBIT
-		serial.baud(57600);
-		serial.setRxBufferSize(249);
-		serial.setTxBufferSize(249);
-	#endif
+	serial.baud(57600);
+	serial.setRxBufferSize(249);
+	serial.setTxBufferSize(249);
 
 	systemReset();
 	registerEventListeners();
@@ -807,14 +719,12 @@ void stepFirmata() {
 	streamDigitalPins();
 	streamSensors();
 
-	#ifndef ARDUINO_BBC_MICROBIT
-		// Note: The following code is essential to avoid overrunning the serial line
-		// and losing or corrupting data, A fixed delay works, too, but a delay
-		// long enough to handle the worst case (streaming 16 channels of analog data
-		// and three digital ports, a total of 3 * 19 = 57 bytes) reduces the maximum
-		// sampling rate for a single channel. This is like a SYNC_SPINWAIT for all
-		// the serial data queued by the last call to stepFirmata().
+	// Note: The following code is essential to avoid overrunning the serial line
+	// and losing or corrupting data, A fixed delay works, too, but a delay
+	// long enough to handle the worst case (streaming 16 channels of analog data
+	// and three digital ports, a total of 3 * 19 = 57 bytes) reduces the maximum
+	// sampling rate for a single channel. The code below is like a bulk SYNC_SPINWAIT
+	// for all serial data queued by the last call to stepFirmata().
 
-		while (serial.txBufferedSize() > 0) /* wait for all bytes to be sent */;
-	#endif
+	while (serial.txBufferedSize() > 0) /* wait for all bytes to be sent */;
 }
