@@ -29,47 +29,32 @@ SOFTWARE.
 
 // DAL Components
 
-// The USE_SCHEDULER option allows Firmata to coexist with user programs that use the
-// predefined MicroBit object and thus, implicitly, the DAL scheduler. Using the DAL
-// scheduler imposes a minimum sampling interval of 5 milliseconds (even if it set to
+// The DAL scheduler imposes a minimum sampling interval of 5 milliseconds (even if it set to
 // a lower value), limiting sensor sampling to a maximum of 200 samples/second. Without the
 // scheduler, when connected to a computer than can handle high incoming data rates, Firmata
-// can stream a single sensor channel at just over 1000 samples/sec. That could be useful
-// for high-speed data collection when instrumenting a science experiment. In practice,
-// however, most applications (e.g. controlling a game with the tilt sensor) don't need data
-// rates faster than the screen update rate, around 60 samples/sec.
+// can stream a single sensor channel at 1000 samples/sec. That could be useful for high-
+// speed data collection when instrumenting a science experiment. To avoid running under the
+// scheduler, Firmata instantiates the individual DAL components it needs rather than using
+// the MicroBit object.
 
-#define USE_SCHEDULER false
+MicroBitI2C i2c(I2C_SDA0, I2C_SCL0);
+MicroBitMessageBus messageBus;
+MicroBitSerial serial(USBTX, USBRX);
+MicroBitStorage storage;
 
-#if USE_SCHEDULER
+MicroBitAccelerometer &accelerometer = MicroBitAccelerometer::autoDetect(i2c);
+MicroBitButton buttonA(MICROBIT_PIN_BUTTON_A, MICROBIT_ID_BUTTON_A);
+MicroBitButton buttonB(MICROBIT_PIN_BUTTON_B, MICROBIT_ID_BUTTON_B);
+MicroBitCompass &compass = MicroBitCompass::autoDetect(i2c);
+MicroBitDisplay display;
+MicroBitThermometer thermometer(storage);
 
-	// This should be defined in the top-level program
-	extern MicroBit uBit;
-
-#else
-
-	// Create DAL components manually to avoid the DAL scheduler
-
-	MicroBitI2C i2c(I2C_SDA0, I2C_SCL0);
-	MicroBitMessageBus messageBus;
-	MicroBitSerial serial(USBTX, USBRX);
-	MicroBitStorage storage;
-
-	MicroBitAccelerometer &accelerometer = MicroBitAccelerometer::autoDetect(i2c);
-	MicroBitButton buttonA(MICROBIT_PIN_BUTTON_A, MICROBIT_ID_BUTTON_A);
-	MicroBitButton buttonB(MICROBIT_PIN_BUTTON_B, MICROBIT_ID_BUTTON_B);
-	MicroBitCompass &compass = MicroBitCompass::autoDetect(i2c);
-	MicroBitDisplay display;
-	MicroBitThermometer thermometer(storage);
-
-	MicroBitIO io(
-		MICROBIT_PIN_P0, MICROBIT_PIN_P1, MICROBIT_PIN_P2, MICROBIT_PIN_P3,
-		MICROBIT_PIN_P4, MICROBIT_PIN_P5, MICROBIT_PIN_P6, MICROBIT_PIN_P7,
-		MICROBIT_PIN_P8, MICROBIT_PIN_P9, MICROBIT_PIN_P10, MICROBIT_PIN_P11,
-		MICROBIT_PIN_P12, MICROBIT_PIN_P13, MICROBIT_PIN_P14, MICROBIT_PIN_P15,
-		MICROBIT_PIN_P16, /* 17-18 */ MICROBIT_PIN_P19, MICROBIT_PIN_P20);
-
-#endif
+MicroBitIO io(
+	MICROBIT_PIN_P0, MICROBIT_PIN_P1, MICROBIT_PIN_P2, MICROBIT_PIN_P3,
+	MICROBIT_PIN_P4, MICROBIT_PIN_P5, MICROBIT_PIN_P6, MICROBIT_PIN_P7,
+	MICROBIT_PIN_P8, MICROBIT_PIN_P9, MICROBIT_PIN_P10, MICROBIT_PIN_P11,
+	MICROBIT_PIN_P12, MICROBIT_PIN_P13, MICROBIT_PIN_P14, MICROBIT_PIN_P15,
+	MICROBIT_PIN_P16, /* 17-18 */ MICROBIT_PIN_P19, MICROBIT_PIN_P20);
 
 // Variables
 
@@ -176,7 +161,6 @@ static void systemReset() {
 	memset(isStreamingChannel, false, sizeof(isStreamingChannel));
 	memset(isStreamingPort, false, sizeof(isStreamingPort));
 	samplingInterval = 100;
-	DEBUG("systemReset");
 }
 
 // Pin Commands
@@ -570,7 +554,9 @@ static int processCommandAt(int cmdStart) {
 static void processCommands() {
 	// Process and remove all complete commands in inbuf.
 
+	receiveData();
 	if (!inbufCount) return; // nothing received
+
 	int cmdStart = 0;
 	while (true) {
 		cmdStart = findCmdByte(cmdStart);
@@ -714,7 +700,6 @@ void initFirmata() {
 }
 
 void stepFirmata() {
-	receiveData();
 	processCommands();
 	streamDigitalPins();
 	streamSensors();
