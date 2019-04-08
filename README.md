@@ -96,32 +96,36 @@ the micro:bit. It's easier to use the precompiled .hex file than to compile from
 The **precompiled** folder contains precompiled .hex files for the latest versions of
 the firmware.
 
-Additional markdown files in these folders document the client API, the micro:bit
-extensions to the Firmata protocol, and the firmware architecture and implementation.
+Additional MarkDown files document the client API and the firmware implementation.
 
 ### Building the source
 
-If your goal is to use this project to provide a tethered interface to the BBC micro:bit
-then you do not need to build the firmware yourself. However, if you'd like to develop
-on or improve the firmware, then building it will be the first step.
+If you just want to use Firmata, you don't need to compile it yourself. The latest
+compiled version is available in the **precompiled** folder. You can install it just
+by dragging and dropping the .hex file onto the USB drive of your BBC micro:bit.
 
-Building the firmware is done with yotta, and instructions for setting up your
-environment can be found on [micro:bit DAL documentation](https://lancaster-university.github.io/microbit-docs/offline-toolchains/)
+However, if you'd like to extend or improve the firmware,
+then building it will be the first step.
+
+Building the firmware is done with Yotta, and instructions for setting up your
+environment can be found at:
+
+[micro:bit runtime offline toolchain](https://lancaster-university.github.io/microbit-docs/offline-toolchains/)
 
 Once you have verified your build toolchain works by building the `microbit-samples` example,
-you can build the firmware here as follows
+you can build the firmware as follows:
 
-```
-cd firmware
-yt target bbc-microbit-classic-gcc
-yt build
-```
+	cd firmware
+	yt target bbc-microbit-classic-gcc
+	yt build
 
-The build firmware will reside in `./build/bbc-microbit-classic-gcc/source/mbFirmate-combined.hex`
+The compiled firmware will be at:
 
-Copy this file to your micro:bit to run your own build.
+	./build/bbc-microbit-classic-gcc/source/mbFirmate-combined.hex
 
-You should confirm that it runs correctly using the test script described above.
+Drag this file to your micro:bit's USB drive to install it.
+
+You can confirm that it runs correctly using the test script described above.
 
 ### License
 
