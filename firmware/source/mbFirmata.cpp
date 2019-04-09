@@ -377,9 +377,22 @@ static void display_plot(int sysexStart, int argBytes) {
 	display.image.setPixelValue(x, y, level);
 }
 
+static void sendScrollDoneEvent() {
+	// Used to send an animation_complete event (i.e. scrolling done)
+	// when a scrolling operation is invoked when the display is disabled.
+
+	const int source_id = 6; // display
+	const int event_id = 1; // animation_complete
+	send2Bytes(SYSEX_START, MB_REPORT_EVENT);
+	send3Bytes(source_id & 0x7F, (source_id >> 7) & 0x7F, (source_id >> 14) & 0x7F);
+	send3Bytes(event_id & 0x7F, (event_id >> 7) & 0x7F, (event_id >> 14) & 0x7F);
+	sendByte(SYSEX_END);
+}
+
 static void scrollString(int sysexStart, int argBytes) {
 	if (argBytes < 1) return;
 	int scrollSpeed = inbuf[sysexStart + 1];
+	if (!displayEnabled) sendScrollDoneEvent();
 	display.stopAnimation();
 	int utf8Bytecount = (argBytes - 1) / 2;
 	if (utf8Bytecount > MAX_SCROLLING_STRING) utf8Bytecount = MAX_SCROLLING_STRING;
@@ -400,6 +413,7 @@ static void scrollNumber(int sysexStart, int argBytes) {
 	n |= inbuf[sysexStart + 4] << 14;
 	n |= inbuf[sysexStart + 5] << 21;
 	n |= inbuf[sysexStart + 6] << 28;
+	if (!displayEnabled) sendScrollDoneEvent();
 	display.stopAnimation();
 	sprintf(scrollingString, "%d", n);
 	display.scrollAsync(scrollingString, scrollSpeed);
