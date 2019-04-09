@@ -254,9 +254,11 @@ class Test4 {
 			mb.clearChannelData();
 			clearScreen();
 			moveCursorTo(18, 0);
-			console.log('Analog streaming (w/ light sensor). Press any key to exit.');
-			console.log('Note: A DAL bug causes analog inputs 0-2 to report "255" much');
-			console.log('of the time when the light sensor is running.');
+			console.log(this.testName());
+			console.log('Note: A DAL bug causes analog inputs 0-2 to report "255"');
+			console.log('much of the time when the light sensor is running.');
+			console.log('The next test will disable the light sensor.');
+			console.log('Press any key to exit.');
 		}
 		this.showSensors();
 		if (keyPressed) {
@@ -288,8 +290,8 @@ class Test4 {
 	}
 }
 
-class Test4NoLight {
-	testName() { return 'Analog streaming (no light sensor)'; }
+class Test5 {
+	testName() { return 'Analog streaming (light sensor disabled)'; }
 	constructor() {
 		keyPressed = false;
 		this.firstTime = true;
@@ -306,7 +308,8 @@ class Test4NoLight {
 			mb.clearChannelData();
 			clearScreen();
 			moveCursorTo(18, 0);
-			console.log('Analog streaming (no light sensor). Press any key to exit.');
+			console.log(this.testName());
+			console.log('Press any key to exit.');
 		}
 		this.showSensors();
 		if (keyPressed) {
@@ -334,6 +337,274 @@ class Test4NoLight {
 			eraseToEndOfLine();
 			moveCursorTo(line, 22);
 			process.stdout.write(mb.analogChannel[i].toString());
+		}
+	}
+}
+
+class Test6 {
+	testName() { return 'Button events'; }
+	constructor() {
+		this.buttonEventNames = ['', 'down', 'up', 'click', 'long-click', 'hold'];
+		this.buttonAEvents = new Array(6).fill(0);
+		this.buttonBEvents = new Array(6).fill(0);
+		this.lastEvent = 0;
+		keyPressed = false;
+		mb.addFirmataEventListener(this.gotEvent.bind(this));
+		this.firstTime = true;
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			clearScreen();
+			this.showButtonEvents();
+			moveCursorTo(10, 0);
+			console.log('Click or hold A and B buttons to generate events. Press any key to exit.');
+		}
+		if (keyPressed) {
+			mb.removeAllFirmataListeners();
+			return 'done';
+		}
+		return '';
+	}
+	gotEvent(sourceID, eventID) {
+		if (1 == sourceID) this.buttonAEvents[eventID]++;
+		if (2 == sourceID) this.buttonBEvents[eventID]++;
+		if ((1 == sourceID) || (2 == sourceID)) this.lastEvent = eventID;
+		this.showButtonEvents();
+	}
+	showButtonEvents() {
+		moveCursorTo(1, 0); eraseToEndOfLine();
+		setUnderline(true);
+		moveCursorTo(1, 0); process.stdout.write('Event');
+		moveCursorTo(1, 20); process.stdout.write('A');
+		moveCursorTo(1, 30); process.stdout.write('B');
+		setUnderline(false);
+		for (var i = 1; i <= 5; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			eraseToEndOfLine();
+			moveCursorTo(line, 0);
+			process.stdout.write(this.buttonEventNames[i]);
+			moveCursorTo(line, 20);
+			process.stdout.write(this.buttonAEvents[i].toString());
+			moveCursorTo(line, 30);
+			process.stdout.write(this.buttonBEvents[i].toString());
+			eraseToEndOfLine();
+		}
+		moveCursorTo(8, 0); eraseToEndOfLine();
+		process.stdout.write('Last event: ' + this.buttonEventNames[this.lastEvent] + '\n\n');
+	}
+}
+
+class Test7 {
+	testName() { return 'Tilt events'; }
+	constructor() {
+		this.buttonEventNames = ['', 'up', 'down', 'left', 'right',
+			'face-up', 'face-down', 'freefall', '3G', '6G', '8G', 'shake'];
+		this.events = new Array(12).fill(0);
+		this.lastEvent = 0;
+		keyPressed = false;
+		mb.streamAnalogChannel(8); // enable accelerometer
+		mb.addFirmataEventListener(this.gotEvent.bind(this));
+		this.firstTime = true;
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			clearScreen();
+			this.showGestureEvents();
+			moveCursorTo(16, 0);
+			console.log('Tilt micro:bit in all directions and shake it to generate events.');
+			console.log('Press any key to exit.');
+		}
+		if (keyPressed) {
+			mb.removeAllFirmataListeners();
+			clearScreen();
+			return 'done';
+		}
+		return '';
+	}
+	gotEvent(sourceID, eventID) {
+		if (27 == sourceID) {
+			this.events[eventID]++;
+			this.lastEvent = eventID;
+			this.showGestureEvents();
+		}
+	}
+	showGestureEvents() {
+		moveCursorTo(1, 0); eraseToEndOfLine();
+		setUnderline(true);
+		moveCursorTo(1, 0); process.stdout.write('Event');
+		moveCursorTo(1, 18); process.stdout.write('Count');
+		setUnderline(false);
+		for (var i = 1; i <= 11; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			eraseToEndOfLine();
+			moveCursorTo(line, 0);
+			process.stdout.write(this.buttonEventNames[i]);
+			moveCursorTo(line, 20);
+			process.stdout.write(this.events[i].toString());
+			eraseToEndOfLine();
+		}
+		moveCursorTo(14, 0); eraseToEndOfLine();
+		process.stdout.write('Last event: ' + this.buttonEventNames[this.lastEvent] + '\n\n');
+//xxx		moveCursorTo(19, 0);
+	}
+}
+
+class Test8 {
+	testName() { return 'Read analog input pins 0-2.'; }
+	constructor() {
+		keyPressed = false;
+		this.firstTime = true;
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			mb.setAnalogSamplingInterval(100);
+			for (var i = 0; i < 3; i++) {
+				mb.setPinMode(i, mb.ANALOG_INPUT);
+				mb.streamAnalogChannel(i);
+			}
+			mb.clearChannelData();
+			clearScreen();
+			moveCursorTo(5, 0);
+			console.log(this.testName());
+			console.log('Touch each pin with your finger to see value change. Press any key to exit.');
+		}
+		this.showSensors();
+		if (keyPressed) {
+			for (var i = 0; i < 3; i++) mb.stopStreamingAnalogChannel(i);
+			mb.enableDisplay(true);
+//xxx			moveCursorTo(6, 0);
+			clearScreen();
+			return 'done';
+		}
+		return '';
+	}
+	showSensors() {
+		var channelNames = ['Pin 0', 'Pin 1', 'Pin 2'];
+		for (var i = 0; i < 3; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			eraseToEndOfLine();
+			moveCursorTo(line, 0);
+			process.stdout.write(channelNames[i]);
+			moveCursorTo(line, 10);
+			process.stdout.write(mb.analogChannel[i].toString());
+		}
+		moveCursorTo(7, 0);
+	}
+}
+
+class Test9 {
+	testName() { return 'Read digital input pins 0-2.'; }
+	constructor() {
+		keyPressed = false;
+		this.firstTime = true;
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			mb.setAnalogSamplingInterval(100);
+			for (var i = 0; i < 3; i++) mb.trackDigitalPin(i, 1);
+			mb.clearChannelData();
+			clearScreen();
+			moveCursorTo(5, 0);
+			console.log(this.testName());
+			console.log('Connect each pin to GND see value change. Press any key to exit.');
+		}
+		this.showSensors();
+		if (keyPressed) {
+			mb.stopTrackingDigitalPins();
+			mb.enableDisplay(true);
+//xxx			moveCursorTo(6, 0);
+			clearScreen();
+			return 'done';
+		}
+		return '';
+	}
+	showSensors() {
+		var channelNames = ['Pin 0:', 'Pin 1:', 'Pin 2:'];
+		for (var i = 0; i < 3; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			eraseToEndOfLine();
+			process.stdout.write(channelNames[i]);
+			moveCursorTo(line, 9);
+			process.stdout.write(mb.digitalInput[i] ? 'High' : 'Low');
+		}
+		moveCursorTo(7, 0);
+	}
+}
+
+class Test10 {
+	testName() { return 'Toggle pins 0-2.'; }
+	constructor() {
+		keyPressed = false;
+		this.state0 = false;
+		this.state1 = false;
+		this.state2 = false;
+		this.timer0 = setInterval(this.toggle0.bind(this), 50);
+		this.timer1 = setInterval(this.toggle1.bind(this), 100);
+		this.timer2 = setInterval(this.toggle2.bind(this), 300);
+		this.firstTime = true;
+	}
+	toggle0() {
+		this.state0 = !this.state0;
+		mb.setDigitalOutput(0, this.state0);
+	}
+	toggle1() {
+		this.state1 = !this.state1;
+		mb.setDigitalOutput(1, this.state1);
+	}
+	toggle2() {
+		this.state2 = !this.state2;
+		mb.setDigitalOutput(2, this.state2);
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			clearScreen();
+			moveCursorTo(1, 0);
+			console.log('Toggling pins at different rates. Connect an LED to each pin to see output.');
+			console.log('Press any key to exit.');
+		}
+		if (keyPressed) {
+			clearInterval(this.timer0);
+			clearInterval(this.timer1);
+			clearInterval(this.timer2);
+			mb.setPinMode(0, mb.DIGITAL_INPUT);
+			mb.setPinMode(1, mb.DIGITAL_INPUT);
+			mb.setPinMode(2, mb.DIGITAL_INPUT);
+			return 'done';
+		}
+	}
+}
+
+class Test11 {
+	testName() { return 'Pulse-width modulation (PWM) digital output on pins 0-2'; }
+	constructor() {
+		keyPressed = false;
+		mb.setAnalogOutput(0, 50);
+		mb.setAnalogOutput(1, 200);
+		mb.setAnalogOutput(2, 1000);
+		this.firstTime = true;
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			clearScreen();
+			moveCursorTo(1, 0);
+			console.log('Pins 0, 1, and 2 set to different duty cycles. Connect an LED to each pin to see brightness differences.');
+			console.log('Press any key to exit.');
+		}
+		if (keyPressed) {
+			mb.setPinMode(0, mb.DIGITAL_INPUT);
+			mb.setPinMode(1, mb.DIGITAL_INPUT);
+			mb.setPinMode(2, mb.DIGITAL_INPUT);
+			return 'done';
 		}
 	}
 }
@@ -400,223 +671,6 @@ class Test21 {
 	}
 }
 
-class Test7 {
-	testName() { return 'Button events. Click or hold A and B buttons to generate events. Press any key to exit.'; }
-	constructor() {
-		this.buttonEventNames = ['', 'down', 'up', 'click', 'long-click', 'hold'];
-		this.buttonAEvents = new Array(6).fill(0);
-		this.buttonBEvents = new Array(6).fill(0);
-		this.lastEvent = 0;
-		keyPressed = false;
-		mb.addFirmataEventListener(this.gotEvent.bind(this));
-		clearScreen();
-		this.showButtonEvents();
-	}
-	step() {
-		if (keyPressed) {
-			mb.removeAllFirmataListeners();
-			return 'done';
-		}
-		return '';
-	}
-	gotEvent(sourceID, eventID) {
-		if (1 == sourceID) this.buttonAEvents[eventID]++;
-		if (2 == sourceID) this.buttonBEvents[eventID]++;
-		if ((1 == sourceID) || (2 == sourceID)) this.lastEvent = eventID;
-		this.showButtonEvents();
-	}
-	showButtonEvents() {
-		moveCursorTo(1, 0); eraseToEndOfLine();
-		setUnderline(true);
-		moveCursorTo(1, 0); process.stdout.write('Event');
-		moveCursorTo(1, 20); process.stdout.write('A');
-		moveCursorTo(1, 30); process.stdout.write('B');
-		setUnderline(false);
-		for (var i = 1; i <= 5; i++) {
-			var line = i + 1;
-			moveCursorTo(line, 0);
-			eraseToEndOfLine();
-			moveCursorTo(line, 0);
-			process.stdout.write(this.buttonEventNames[i]);
-			moveCursorTo(line, 20);
-			process.stdout.write(this.buttonAEvents[i].toString());
-			moveCursorTo(line, 30);
-			process.stdout.write(this.buttonBEvents[i].toString());
-			eraseToEndOfLine();
-		}
-		moveCursorTo(8, 0); eraseToEndOfLine();
-		process.stdout.write('Last event: ' + this.buttonEventNames[this.lastEvent] + '\n\n');
-	}
-}
-
-class Test8 {
-	testName() { return 'digital output'; }
-	constructor() {
-		keyPressed = false;
-		this.state0 = false;
-		this.state1 = false;
-		this.state2 = false;
-		this.timer0 = setInterval(this.toggle0.bind(this), 3);
-		this.timer1 = setInterval(this.toggle1.bind(this), 2);
-		this.timer2 = setInterval(this.toggle2.bind(this), 1);
-		console.log('Toggling pins 0, 1, and 2. Connect an LED to see output.');
-	}
-	toggle0() {
-		this.state0 = !this.state0;
-		mb.setDigitalOutput(0, this.state0);
-	}
-	toggle1() {
-		this.state1 = !this.state1;
-		mb.setDigitalOutput(1, this.state1);
-	}
-	toggle2() {
-		this.state2 = !this.state2;
-		mb.setDigitalOutput(2, this.state2);
-	}
-	step() {
-		if (keyPressed) {
-			clearInterval(this.timer0);
-			clearInterval(this.timer1);
-			clearInterval(this.timer2);
-			return '';
-		}
-	}
-	gotEvent(sourceID, eventID) {
-		console.log('evt', sourceID, eventID);
-	}
-}
-
-class Test9 {
-	testName() { return 'Tilt events. Tilt micro:bit in all directions and shake it to generate events. Press any key to exit.'; }
-	constructor() {
-		this.buttonEventNames = ['', 'up', 'down', 'left', 'right',
-			'face-up', 'face-down', 'freefall', '3G', '6G', '8G', 'shake'];
-		this.events = new Array(12).fill(0);
-		this.lastEvent = 0;
-		keyPressed = false;
-		mb.streamAnalogChannel(8); // enable accelerometer
-		mb.addFirmataEventListener(this.gotEvent.bind(this));
-		clearScreen();
-		this.showGestureEvents();
-	}
-	step() {
-		if (keyPressed) {
-			mb.removeAllFirmataListeners();
-			return 'done';
-		}
-		return '';
-	}
-	gotEvent(sourceID, eventID) {
-		if (27 == sourceID) {
-			this.events[eventID]++;
-			this.lastEvent = eventID;
-			this.showGestureEvents();
-		}
-	}
-	showGestureEvents() {
-		moveCursorTo(1, 0); eraseToEndOfLine();
-		setUnderline(true);
-		moveCursorTo(1, 0); process.stdout.write('Event');
-		moveCursorTo(1, 18); process.stdout.write('Count');
-		setUnderline(false);
-		for (var i = 1; i <= 11; i++) {
-			var line = i + 1;
-			moveCursorTo(line, 0);
-			eraseToEndOfLine();
-			moveCursorTo(line, 0);
-			process.stdout.write(this.buttonEventNames[i]);
-			moveCursorTo(line, 20);
-			process.stdout.write(this.events[i].toString());
-			eraseToEndOfLine();
-		}
-		moveCursorTo(14, 0); eraseToEndOfLine();
-		process.stdout.write('Last event: ' + this.buttonEventNames[this.lastEvent] + '\n\n');
-	}
-}
-
-class Test10 {
-	testName() { return 'Read analog input pins 0-2.'; }
-	constructor() {
-		keyPressed = false;
-		this.firstTime = true;
-	}
-	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			mb.setAnalogSamplingInterval(100);
-			for (var i = 0; i < 3; i++) {
-				mb.setPinMode(i, mb.ANALOG_INPUT);
-				mb.streamAnalogChannel(i);
-			}
-			mb.clearChannelData();
-			clearScreen();
-			moveCursorTo(5, 0);
-			console.log(this.testName());
-			console.log('Touch each pin with your finger to see value change. Press any key to exit.');
-		}
-		this.showSensors();
-		if (keyPressed) {
-			for (var i = 0; i < 3; i++) mb.stopStreamingAnalogChannel(i);
-			mb.enableDisplay(true);
-			moveCursorTo(6, 0);
-			return 'done';
-		}
-		return '';
-	}
-	showSensors() {
-		var channelNames = ['Pin 0', 'Pin 1', 'Pin 2'];
-		for (var i = 0; i < 3; i++) {
-			var line = i + 1;
-			moveCursorTo(line, 0);
-			eraseToEndOfLine();
-			moveCursorTo(line, 0);
-			process.stdout.write(channelNames[i]);
-			moveCursorTo(line, 10);
-			process.stdout.write(mb.analogChannel[i].toString());
-		}
-	}
-}
-
-class Test11 {
-	testName() { return 'Read digital input pins 0-2.'; }
-	constructor() {
-		keyPressed = false;
-		this.firstTime = true;
-	}
-	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			mb.setAnalogSamplingInterval(100);
-			for (var i = 0; i < 3; i++) mb.trackDigitalPin(i, 1);
-			mb.clearChannelData();
-			clearScreen();
-			moveCursorTo(5, 0);
-			console.log(this.testName());
-			console.log('Connect each pin to GND see value change. Press any key to exit.');
-		}
-		this.showSensors();
-		if (keyPressed) {
-			mb.stopTrackingDigitalPins();
-			mb.enableDisplay(true);
-			moveCursorTo(6, 0);
-			return 'done';
-		}
-		return '';
-	}
-	showSensors() {
-		var channelNames = ['Pin 0:', 'Pin 1:', 'Pin 2:'];
-		for (var i = 0; i < 3; i++) {
-			var line = i + 1;
-			moveCursorTo(line, 0);
-			eraseToEndOfLine();
-			process.stdout.write(channelNames[i]);
-			moveCursorTo(line, 9);
-			process.stdout.write(mb.digitalInput[i] ? 'High' : 'Low');
-		}
-		moveCursorTo(7, 0);
-	}
-}
-
 // Run all tests
 
 function runAllTests() {
@@ -628,13 +682,15 @@ function runAllTests() {
 // 		Test2,
 // 		Test3,
 // 		Test4,
-// 		Test4NoLight,
 // 		Test5,
-// 		Test6,
-// 		Test7,
-//		Test8,
-//		Test9,
-		Test11
+		Test6,
+		Test7,
+		Test8,
+		Test9,
+		Test10,
+		Test11,
+		Test20,
+		Test21
 	]);
 }
 
