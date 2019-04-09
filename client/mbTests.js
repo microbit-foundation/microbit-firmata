@@ -25,19 +25,9 @@ SOFTWARE.
 /* To do:
   [ ] digital input pins 0-5 (with display disabled)
   [ ] analog input pins 0-5 (with display disabled)
-  [ ] accelerometer test (readings and events)
-  [ ] other sensor tests (readings; do after analog pin tests)
-  [ ] button tests (check for all possible events)
-
-  [ ] display tests (monitor events to know when scrolling done)
-  [ ] sensor test (press key to exit)
-  [ ] tilt tests
-  [ ] button tests
+  [ ] digital output pins 0-2
+  [ ] pwm output pins 0-2
   [ ] touch input tests
-  [ ] protocol: incomplete message rejection
-  [ ] protocol: unknown message rejection
-  [x] test framework
-  [x] protocol: can get firmata version? (tests basic connectivity)
 */
 
 var MBFirmataClient = require('./MBFirmataClient.js');
@@ -86,27 +76,35 @@ function eraseToEndOfLine() {
 	process.stdout.write('\033[K');
 }
 
+function setUnderline(flag) {
+	if (flag) {
+		process.stdout.write('\033[4m');
+	} else {
+		process.stdout.write('\033[0m');
+	}
+}
+
 // Test Runner
 
 function runTests(testList) {
 	// Run all the tests in the given list of tests.
 
+	var testsRun = 0;
 	var currentTest; // the current test
+
 	function stepper() {
 		if (!currentTest) {
 			if (testList.length > 0) {
 				currentTest = new (testList.shift());
+				console.log('Test: ' + currentTest.testName());
 			} else {
-				console.log('No more tests');
+				console.log('\nTesting complete. ' + testsRun + ' tests run.');
 				process.exit();
 			}
 		}
 		var status = currentTest.step();
-		if ('ok' == status) {
-			console.log(currentTest.testName() + ': passed');
-			currentTest = null;
-		} else if ('fail' == status) {
-			console.log(currentTest.testName() + ': *** FAILED! ***');
+		if ('done' == status) {
+			testsRun++;
 			currentTest = null;
 		}
 	}
@@ -120,14 +118,14 @@ function runTests(testList) {
  *		testName()		- returns the test name
  *		constructor()	- initializes the test, possibly printing instructions for the tester
  *		step()			- takes the next action of the test, checks for completion
- *						- returns 'ok', 'fail', or '' if test is still in progress
+ *						- returns 'done' when complete or '' if test is still in progress
  */
 
 class ConnectivityTest {
 	// Connect to board and verify that the board responds to firmataVersion request.
 	// NOTE: This must be the first test.
 
-	testName() { return 'Board connectivity'; }
+	testName() { return 'Connectivity'; }
 	constructor() {
 		mb.disconnect();
 		mb.firmataVersion = '';
@@ -136,10 +134,10 @@ class ConnectivityTest {
 	}
 	step() {
 		if ((mb.firmataVersion.length > 0) && (mb.firmwareVersion.length > 0)) {
-			console.log('Micro:bit hardware', mb.boardVersion);
-			console.log(mb.firmataVersion);
-			console.log(mb.firmwareVersion);
-			return 'ok'; // got version
+			console.log('    Micro:bit hardware', mb.boardVersion);
+			console.log('    ' + mb.firmataVersion);
+			console.log('    ' + mb.firmwareVersion);
+			return 'done'; // got version
 		}
 		if (timerMSecs() > 1000) {
 			console.log('No response from board.');
@@ -154,10 +152,10 @@ class ConnectivityTest {
 class Test1 {
 	testName() { return 'Scroll string'; }
 	constructor() {
-		mb.scrollString('TEST', 80);
+		mb.scrollString('abc', 80);
 	}
 	step() {
-		return (!mb.isScrolling) ? 'ok' : '';
+		return (!mb.isScrolling) ? 'done' : '';
 	}
 }
 
@@ -167,7 +165,7 @@ class Test2 {
 		mb.scrollInteger(-123, 80);
 	}
 	step() {
-		return (!mb.isScrolling) ? 'ok' : '';
+		return (!mb.isScrolling) ? 'done' : '';
 	}
 }
 
@@ -233,7 +231,7 @@ class Test3 {
 			mb.enableDisplay(false);
 			this.phase = 5;
 		}
-		return (this.phase >= 5) ? 'ok' : '';
+		return (this.phase >= 5) ? 'done' : '';
 	}
 }
 
@@ -257,13 +255,15 @@ class Test4 {
 			clearScreen();
 			moveCursorTo(18, 0);
 			console.log('Analog streaming (w/ light sensor). Press any key to exit.');
+			console.log('Note: A DAL bug causes analog inputs 0-2 to report "255" much');
+			console.log('of the time when the light sensor is running.');
 		}
 		this.showSensors();
 		if (keyPressed) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
 			moveCursorTo(18, 0);
 			eraseToEndOfLine();
-			return 'ok';
+			return 'done';
 		}
 		return '';
 	}
@@ -313,7 +313,7 @@ class Test4NoLight {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
 			moveCursorTo(18, 0);
 			eraseToEndOfLine();
-			return 'ok';
+			return 'done';
 		}
 		return '';
 	}
@@ -339,7 +339,7 @@ class Test4NoLight {
 }
 
 class Test5 {
-	testName() { return 'Stress test: 1 channel'; }
+	testName() { return 'Stress test, single channel'; }
 	constructor() {
 		mb.enableDisplay(false);
 		mb.setAnalogSamplingInterval(1);
@@ -359,18 +359,18 @@ class Test5 {
 		if (msecs > 1100) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
 			var bytesPerSec = Math.round((3 * mb.analogUpdateCount * 1000) / this.samplingTime);
-			console.log('total: ', mb.analogUpdateCount,
+			console.log('    received', mb.analogUpdateCount,
 						'samples in', this.samplingTime, 'msecs',
 						('(' + bytesPerSec + ' bytes/sec)'));
 //			console.log(mb.channelUpdateCounts);
-			return 'ok';
+			return 'done';
 		}
 		return '';
 	}
 }
 
 class Test6 {
-	testName() { return 'Stress test: 16 channels'; }
+	testName() { return 'Stress test, 16 channels'; }
 	constructor() {
 		mb.enableDisplay(false);
 		mb.setAnalogSamplingInterval(1);
@@ -390,33 +390,62 @@ class Test6 {
 		if (msecs > 1500) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
 			var bytesPerSec = Math.round((3 * mb.analogUpdateCount * 1000) / this.samplingTime);
-			console.log('total: ', mb.analogUpdateCount,
+			console.log('    received', mb.analogUpdateCount,
 						'samples in', this.samplingTime, 'msecs',
 						('(' + bytesPerSec + ' bytes/sec)'));
 //			console.log(mb.channelUpdateCounts);
-			return 'ok';
+			return 'done';
 		}
 		return '';
 	}
 }
 
 class Test7 {
-	testName() { return 'Events'; }
+	testName() { return 'Button events. Click or hold A and B buttons to generate events. Press any key to exit.'; }
 	constructor() {
+		this.buttonEventNames = ['', 'down', 'up', 'click', 'long-click', 'hold'];
+		this.buttonAEvents = new Array(6).fill(0);
+		this.buttonBEvents = new Array(6).fill(0);
+		this.lastEvent = 0;
 		keyPressed = false;
-		mb.streamAnalogChannel(8); // ensure accelerometer is on (xxx make sure defaults to on)
 		mb.addFirmataEventListener(this.gotEvent.bind(this));
-		console.log('Receiving events. Press any key to exit.');
+		clearScreen();
+		this.showButtonEvents();
 	}
 	step() {
 		if (keyPressed) {
 			mb.removeAllFirmataListeners();
-			return 'ok';
+			return 'done';
 		}
 		return '';
 	}
 	gotEvent(sourceID, eventID) {
-		console.log('evt', sourceID, eventID);
+		if (1 == sourceID) this.buttonAEvents[eventID]++;
+		if (2 == sourceID) this.buttonBEvents[eventID]++;
+		if ((1 == sourceID) || (2 == sourceID)) this.lastEvent = eventID;
+		this.showButtonEvents();
+	}
+	showButtonEvents() {
+		moveCursorTo(1, 0); eraseToEndOfLine();
+		setUnderline(true);
+		moveCursorTo(1, 0); process.stdout.write('Event');
+		moveCursorTo(1, 20); process.stdout.write('A');
+		moveCursorTo(1, 30); process.stdout.write('B');
+		setUnderline(false);
+		for (var i = 1; i <= 5; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			eraseToEndOfLine();
+			moveCursorTo(line, 0);
+			process.stdout.write(this.buttonEventNames[i]);
+			moveCursorTo(line, 20);
+			process.stdout.write(this.buttonAEvents[i].toString());
+			moveCursorTo(line, 30);
+			process.stdout.write(this.buttonBEvents[i].toString());
+			eraseToEndOfLine();
+		}
+		moveCursorTo(8, 0); eraseToEndOfLine();
+		process.stdout.write('Last event: ' + this.buttonEventNames[this.lastEvent] + '\n\n');
 	}
 }
 
@@ -457,22 +486,71 @@ class Test8 {
 	}
 }
 
+class Test9 {
+	testName() { return 'Tilt events. Tilt micro:bit in all directions and shake it to generate events. Press any key to exit.'; }
+	constructor() {
+		this.buttonEventNames = ['', 'up', 'down', 'left', 'right',
+			'face-up', 'face-down', 'freefall', '3G', '6G', '8G', 'shake'];
+		this.events = new Array(12).fill(0);
+		this.lastEvent = 0;
+		keyPressed = false;
+		mb.streamAnalogChannel(8); // enable accelerometer
+		mb.addFirmataEventListener(this.gotEvent.bind(this));
+		clearScreen();
+		this.showGestureEvents();
+	}
+	step() {
+		if (keyPressed) {
+			mb.removeAllFirmataListeners();
+			return 'done';
+		}
+		return '';
+	}
+	gotEvent(sourceID, eventID) {
+		if (27 == sourceID) {
+			this.events[eventID]++;
+			this.lastEvent = eventID;
+			this.showGestureEvents();
+		}
+	}
+	showGestureEvents() {
+		moveCursorTo(1, 0); eraseToEndOfLine();
+		setUnderline(true);
+		moveCursorTo(1, 0); process.stdout.write('Event');
+		moveCursorTo(1, 18); process.stdout.write('Count');
+		setUnderline(false);
+		for (var i = 1; i <= 11; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			eraseToEndOfLine();
+			moveCursorTo(line, 0);
+			process.stdout.write(this.buttonEventNames[i]);
+			moveCursorTo(line, 20);
+			process.stdout.write(this.events[i].toString());
+			eraseToEndOfLine();
+		}
+		moveCursorTo(14, 0); eraseToEndOfLine();
+		process.stdout.write('Last event: ' + this.buttonEventNames[this.lastEvent] + '\n\n');
+	}
+}
+
 // Run all tests
 
 function runAllTests() {
 	// Run entire test suite.
 
 	runTests([
-		ConnectivityTest,
-		Test1,
-		Test2,
-		Test3,
-		Test4,
-		Test4NoLight,
-		Test5,
-		Test6,
-//		Test7,
-//		Test8
+		ConnectivityTest, // this must be the first test
+// 		Test1,
+// 		Test2,
+// 		Test3,
+// 		Test4,
+// 		Test4NoLight,
+// 		Test5,
+// 		Test6,
+// 		Test7,
+//		Test8,
+		Test9
 	]);
 }
 
