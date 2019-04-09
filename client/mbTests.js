@@ -22,14 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-/* To do:
-  [ ] digital input pins 0-2 (with display disabled)
-  [ ] analog input pins 0-2 (with display disabled)
-  [ ] digital output pins 0-2
-  [ ] pwm output pins 0-2
-  [ ] touch input tests
-*/
-
 var MBFirmataClient = require('./MBFirmataClient.js');
 var mb = new MBFirmataClient();
 
@@ -96,9 +88,9 @@ function runTests(testList) {
 		if (!currentTest) {
 			if (testList.length > 0) {
 				currentTest = new (testList.shift());
-				console.log('Test: ' + currentTest.testName());
 			} else {
-				console.log('\nTesting complete. ' + testsRun + ' tests run.');
+				console.log('\n' + testsRun + ' tests run');
+				console.log('Testing complete');
 				process.exit();
 			}
 		}
@@ -114,23 +106,20 @@ function runTests(testList) {
 
 // Tests
 
-/* Each test is a class with:
- *		testName()		- returns the test name
- *		constructor()	- initializes the test, possibly printing instructions for the tester
- *		step()			- takes the next action of the test, checks for completion
- *						- returns 'done' when complete or '' if test is still in progress
- */
+// Each test is a class with:
+//	constructor()	- initialize the test, possibly printing instructions for the tester
+//	step()			- take the next action of the test and return 'done' when test is complete
 
 class ConnectivityTest {
 	// Connect to board and verify that the board responds to firmataVersion request.
 	// NOTE: This must be the first test.
 
-	testName() { return 'Connectivity'; }
 	constructor() {
 		mb.disconnect();
 		mb.firmataVersion = '';
 		mb.connect();
 		timerStart();
+		console.log('Board connectivity test');
 	}
 	step() {
 		if ((mb.firmataVersion.length > 0) && (mb.firmwareVersion.length > 0)) {
@@ -149,9 +138,9 @@ class ConnectivityTest {
 	}
 }
 
-class Test1 {
-	testName() { return 'Scroll string'; }
+class Test2 {
 	constructor() {
+		console.log('String scroll test...');
 		mb.scrollString('abc', 80);
 	}
 	step() {
@@ -159,9 +148,9 @@ class Test1 {
 	}
 }
 
-class Test2 {
-	testName() { return 'Scroll number'; }
+class Test3 {
 	constructor() {
+		console.log('Number scroll test...');
 		mb.scrollInteger(-123, 80);
 	}
 	step() {
@@ -169,13 +158,13 @@ class Test2 {
 	}
 }
 
-class Test3 {
-	testName() { return 'Plot and display'; }
+class Test4 {
 	constructor() {
 		this.phase = 0;
 		this.x = 0;
 		this.y = 0;
 		mb.enableDisplay(true);
+		console.log('Plot and display test...');
 		timerStart();
 	}
 	step() {
@@ -235,36 +224,30 @@ class Test3 {
 	}
 }
 
-class Test4 {
-	testName() { return 'Analog streaming (w/ light sensor)'; }
+class Test5 {
 	constructor() {
 		keyPressed = false;
-		this.firstTime = true;
 		for (var pin = 0; pin < 3; pin++) mb.setPinMode(pin, mb.ANALOG_INPUT);
 		mb.enableDisplay(true);
 		mb.enableLightSensor();
+		mb.setAnalogSamplingInterval(100);
+		for (var chan = 0; chan < 16; chan++) {
+			mb.streamAnalogChannel(chan);
+		}
+		mb.clearChannelData();
+
+		clearScreen();
+		moveCursorTo(18, 0);
+		console.log('Analog streaming test (light sensor enabled)');
+		console.log('Note: A DAL bug causes analog inputs 0-2 to report "255"');
+		console.log('much of the time when the light sensor is running.');
+		console.log('The next test will disable the light sensor.');
+		console.log('Press any key to exit.');
 	}
 	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			mb.setAnalogSamplingInterval(100);
-			for (var chan = 0; chan < 16; chan++) {
-				mb.streamAnalogChannel(chan);
-			}
-			mb.clearChannelData();
-			clearScreen();
-			moveCursorTo(18, 0);
-			console.log(this.testName());
-			console.log('Note: A DAL bug causes analog inputs 0-2 to report "255"');
-			console.log('much of the time when the light sensor is running.');
-			console.log('The next test will disable the light sensor.');
-			console.log('Press any key to exit.');
-		}
 		this.showSensors();
 		if (keyPressed) {
 			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
-			moveCursorTo(18, 0);
-			eraseToEndOfLine();
 			return 'done';
 		}
 		return '';
@@ -287,62 +270,57 @@ class Test4 {
 			moveCursorTo(line, 22);
 			process.stdout.write(mb.analogChannel[i].toString());
 		}
-	}
-}
-
-class Test5 {
-	testName() { return 'Analog streaming (light sensor disabled)'; }
-	constructor() {
-		keyPressed = false;
-		this.firstTime = true;
-		for (var pin = 0; pin < 3; pin++) mb.setPinMode(pin, mb.ANALOG_INPUT);
-		mb.enableDisplay(false);
-	}
-	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			mb.setAnalogSamplingInterval(100);
-			for (var chan = 0; chan < 16; chan++) {
-				if (chan != 11) mb.streamAnalogChannel(chan);
-			}
-			mb.clearChannelData();
-			clearScreen();
-			moveCursorTo(18, 0);
-			console.log(this.testName());
-			console.log('Press any key to exit.');
-		}
-		this.showSensors();
-		if (keyPressed) {
-			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
-			moveCursorTo(18, 0);
-			eraseToEndOfLine();
-			return 'done';
-		}
-		return '';
-	}
-	showSensors() {
-		var channelNames = [
-			'pin 0', 'pin 1', 'pin 2', 'pin 3', 'pin 4', 'pin 5', '(unused)', '(unused)',
-			'accelerometer x', 'accelerometer y', 'accelerometer z',
-			'light sensor', 'temperature',
-			'magnetometer x', 'magnetometer y', 'magnetometer z'];
-
-		for (var i = 0; i < 16; i++) {
-			var line = i + 1;
-			moveCursorTo(line, 0);
-			process.stdout.write(i.toString());
-			moveCursorTo(line, 4);
-			process.stdout.write(channelNames[i]);
-			moveCursorTo(line, 22);
-			eraseToEndOfLine();
-			moveCursorTo(line, 22);
-			process.stdout.write(mb.analogChannel[i].toString());
-		}
+		moveCursorTo(23, 0);
 	}
 }
 
 class Test6 {
-	testName() { return 'Button events'; }
+	constructor() {
+		keyPressed = false;
+		for (var pin = 0; pin < 3; pin++) mb.setPinMode(pin, mb.ANALOG_INPUT);
+		mb.enableDisplay(false);
+		mb.setAnalogSamplingInterval(100);
+		for (var chan = 0; chan < 16; chan++) {
+			if (chan != 11) mb.streamAnalogChannel(chan);
+		}
+		mb.clearChannelData();
+
+		clearScreen();
+		moveCursorTo(18, 0);
+		console.log('Analog streaming test (light sensor disabled)');
+		console.log('Press any key to exit.');
+	}
+	step() {
+		this.showSensors();
+		if (keyPressed) {
+			for (var i = 0; i < 16; i++) mb.stopStreamingAnalogChannel(i);
+			return 'done';
+		}
+		return '';
+	}
+	showSensors() {
+		var channelNames = [
+			'pin 0', 'pin 1', 'pin 2', 'pin 3', 'pin 4', 'pin 5', '(unused)', '(unused)',
+			'accelerometer x', 'accelerometer y', 'accelerometer z',
+			'light sensor', 'temperature',
+			'magnetometer x', 'magnetometer y', 'magnetometer z'];
+
+		for (var i = 0; i < 16; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			process.stdout.write(i.toString());
+			moveCursorTo(line, 4);
+			process.stdout.write(channelNames[i]);
+			moveCursorTo(line, 22);
+			eraseToEndOfLine();
+			moveCursorTo(line, 22);
+			process.stdout.write(mb.analogChannel[i].toString());
+		}
+		moveCursorTo(20, 0);
+	}
+}
+
+class Test7 {
 	constructor() {
 		this.buttonEventNames = ['', 'down', 'up', 'click', 'long-click', 'hold'];
 		this.buttonAEvents = new Array(6).fill(0);
@@ -350,16 +328,15 @@ class Test6 {
 		this.lastEvent = 0;
 		keyPressed = false;
 		mb.addFirmataEventListener(this.gotEvent.bind(this));
-		this.firstTime = true;
+
+		clearScreen();
+		this.showButtonEvents();
+		moveCursorTo(10, 0);
+		console.log('Button events');
+		console.log('Click or hold A and B buttons to generate events.');
+		console.log('Press any key to exit.');
 	}
 	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			clearScreen();
-			this.showButtonEvents();
-			moveCursorTo(10, 0);
-			console.log('Click or hold A and B buttons to generate events. Press any key to exit.');
-		}
 		if (keyPressed) {
 			mb.removeAllFirmataListeners();
 			return 'done';
@@ -393,11 +370,11 @@ class Test6 {
 		}
 		moveCursorTo(8, 0); eraseToEndOfLine();
 		process.stdout.write('Last event: ' + this.buttonEventNames[this.lastEvent] + '\n\n');
+		moveCursorTo(13, 0);
 	}
 }
 
-class Test7 {
-	testName() { return 'Tilt events'; }
+class Test8 {
 	constructor() {
 		this.buttonEventNames = ['', 'up', 'down', 'left', 'right',
 			'face-up', 'face-down', 'freefall', '3G', '6G', '8G', 'shake'];
@@ -406,20 +383,18 @@ class Test7 {
 		keyPressed = false;
 		mb.streamAnalogChannel(8); // enable accelerometer
 		mb.addFirmataEventListener(this.gotEvent.bind(this));
-		this.firstTime = true;
+
+		clearScreen();
+		this.showGestureEvents();
+		moveCursorTo(16, 0);
+		console.log('Tilt event test');
+		console.log('Tilt micro:bit in all directions and shake it to generate events.');
+		console.log('Press any key to exit.');
 	}
 	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			clearScreen();
-			this.showGestureEvents();
-			moveCursorTo(16, 0);
-			console.log('Tilt micro:bit in all directions and shake it to generate events.');
-			console.log('Press any key to exit.');
-		}
 		if (keyPressed) {
 			mb.removeAllFirmataListeners();
-			clearScreen();
+			mb.stopStreamingAnalogChannel(8);
 			return 'done';
 		}
 		return '';
@@ -449,36 +424,32 @@ class Test7 {
 		}
 		moveCursorTo(14, 0); eraseToEndOfLine();
 		process.stdout.write('Last event: ' + this.buttonEventNames[this.lastEvent] + '\n\n');
-//xxx		moveCursorTo(19, 0);
+		moveCursorTo(19, 0);
 	}
 }
 
-class Test8 {
-	testName() { return 'Read analog input pins 0-2.'; }
+class Test9 {
 	constructor() {
 		keyPressed = false;
-		this.firstTime = true;
+		mb.setAnalogSamplingInterval(100);
+		for (var i = 0; i < 3; i++) {
+			mb.setPinMode(i, mb.ANALOG_INPUT);
+			mb.streamAnalogChannel(i);
+		}
+		mb.clearChannelData();
+
+		clearScreen();
+		moveCursorTo(5, 0);
+		console.log('Analog pin input test');
+		console.log('Reading analog input pins 0-2.');
+		console.log('Touch each pin with your finger to see value change.');
+		console.log('Press any key to exit.');
 	}
 	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			mb.setAnalogSamplingInterval(100);
-			for (var i = 0; i < 3; i++) {
-				mb.setPinMode(i, mb.ANALOG_INPUT);
-				mb.streamAnalogChannel(i);
-			}
-			mb.clearChannelData();
-			clearScreen();
-			moveCursorTo(5, 0);
-			console.log(this.testName());
-			console.log('Touch each pin with your finger to see value change. Press any key to exit.');
-		}
 		this.showSensors();
 		if (keyPressed) {
 			for (var i = 0; i < 3; i++) mb.stopStreamingAnalogChannel(i);
 			mb.enableDisplay(true);
-//xxx			moveCursorTo(6, 0);
-			clearScreen();
 			return 'done';
 		}
 		return '';
@@ -494,33 +465,29 @@ class Test8 {
 			moveCursorTo(line, 10);
 			process.stdout.write(mb.analogChannel[i].toString());
 		}
-		moveCursorTo(7, 0);
+		moveCursorTo(9, 0);
 	}
 }
 
-class Test9 {
-	testName() { return 'Read digital input pins 0-2.'; }
+class Test10 {
 	constructor() {
 		keyPressed = false;
-		this.firstTime = true;
+		mb.setAnalogSamplingInterval(100);
+		for (var i = 0; i < 3; i++) mb.trackDigitalPin(i, 1);
+		mb.clearChannelData();
+
+		clearScreen();
+		moveCursorTo(5, 0);
+		console.log('Digital pin input test');
+		console.log('Reading digital input pins 0-2.');
+		console.log('Connect each pin to GND see value change.');
+		console.log('Press any key to exit.');
 	}
 	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			mb.setAnalogSamplingInterval(100);
-			for (var i = 0; i < 3; i++) mb.trackDigitalPin(i, 1);
-			mb.clearChannelData();
-			clearScreen();
-			moveCursorTo(5, 0);
-			console.log(this.testName());
-			console.log('Connect each pin to GND see value change. Press any key to exit.');
-		}
 		this.showSensors();
 		if (keyPressed) {
 			mb.stopTrackingDigitalPins();
 			mb.enableDisplay(true);
-//xxx			moveCursorTo(6, 0);
-			clearScreen();
 			return 'done';
 		}
 		return '';
@@ -535,12 +502,11 @@ class Test9 {
 			moveCursorTo(line, 9);
 			process.stdout.write(mb.digitalInput[i] ? 'High' : 'Low');
 		}
-		moveCursorTo(7, 0);
+		moveCursorTo(9, 0);
 	}
 }
 
-class Test10 {
-	testName() { return 'Toggle pins 0-2.'; }
+class Test11 {
 	constructor() {
 		keyPressed = false;
 		this.state0 = false;
@@ -549,7 +515,13 @@ class Test10 {
 		this.timer0 = setInterval(this.toggle0.bind(this), 50);
 		this.timer1 = setInterval(this.toggle1.bind(this), 100);
 		this.timer2 = setInterval(this.toggle2.bind(this), 300);
-		this.firstTime = true;
+
+		clearScreen();
+		moveCursorTo(1, 0);
+		console.log('Digital pin output test');
+		console.log('Toggling pins 0-2 at different rates.');
+		console.log('Connect an LED to each pin to see the different blink rates.');
+		console.log('Press any key to exit.');
 	}
 	toggle0() {
 		this.state0 = !this.state0;
@@ -564,13 +536,6 @@ class Test10 {
 		mb.setDigitalOutput(2, this.state2);
 	}
 	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			clearScreen();
-			moveCursorTo(1, 0);
-			console.log('Toggling pins at different rates. Connect an LED to each pin to see output.');
-			console.log('Press any key to exit.');
-		}
 		if (keyPressed) {
 			clearInterval(this.timer0);
 			clearInterval(this.timer1);
@@ -583,23 +548,21 @@ class Test10 {
 	}
 }
 
-class Test11 {
-	testName() { return 'Pulse-width modulation (PWM) digital output on pins 0-2'; }
+class Test12 {
 	constructor() {
 		keyPressed = false;
 		mb.setAnalogOutput(0, 50);
 		mb.setAnalogOutput(1, 200);
 		mb.setAnalogOutput(2, 1000);
-		this.firstTime = true;
+
+		clearScreen();
+		moveCursorTo(1, 0);
+		console.log('Analog output (pulse width modulation) test');
+		console.log('Setting pins 0, 1, and 2 to different duty cycles.');
+		console.log('Connect an LED to each pin to see the brightness differences.');
+		console.log('Press any key to exit.');
 	}
 	step() {
-		if (this.firstTime) {
-			this.firstTime = false;
-			clearScreen();
-			moveCursorTo(1, 0);
-			console.log('Pins 0, 1, and 2 set to different duty cycles. Connect an LED to each pin to see brightness differences.');
-			console.log('Press any key to exit.');
-		}
 		if (keyPressed) {
 			mb.setPinMode(0, mb.DIGITAL_INPUT);
 			mb.setPinMode(1, mb.DIGITAL_INPUT);
@@ -609,8 +572,7 @@ class Test11 {
 	}
 }
 
-class Test20 {
-	testName() { return 'Stress test, single channel'; }
+class Test13 {
 	constructor() {
 		mb.enableDisplay(false);
 		mb.setAnalogSamplingInterval(1);
@@ -619,6 +581,7 @@ class Test20 {
 		timerStart();
 		this.samplingTime = 0;
 		this.sampling = true;
+		console.log('Channel streaming stress test, single channel');
 	}
 	step() {
 		var msecs = timerMSecs();
@@ -633,23 +596,26 @@ class Test20 {
 			console.log('    received', mb.analogUpdateCount,
 						'samples in', this.samplingTime, 'msecs',
 						('(' + bytesPerSec + ' bytes/sec)'));
-//			console.log(mb.channelUpdateCounts);
+			console.log('    updates per channel: ' + mb.channelUpdateCounts.toString());
 			return 'done';
 		}
 		return '';
 	}
 }
 
-class Test21 {
-	testName() { return 'Stress test, 16 channels'; }
+class Test14 {
 	constructor() {
 		mb.enableDisplay(false);
 		mb.setAnalogSamplingInterval(1);
-		for (var i = 0; i < 16; i++) mb.streamAnalogChannel(i);
+		for (var i = 0; i < 16; i++) {
+			if ((i < 6) || (10 == i)) mb.setPinMode(i, mb.ANALOG_INPUT);
+			mb.streamAnalogChannel(i);
+		}
 		mb.clearChannelData();
 		timerStart();
 		this.samplingTime = 0;
 		this.sampling = true;
+		console.log('Channel streaming stress test, 16 channels');
 	}
 	step() {
 		var msecs = timerMSecs();
@@ -664,7 +630,7 @@ class Test21 {
 			console.log('    received', mb.analogUpdateCount,
 						'samples in', this.samplingTime, 'msecs',
 						('(' + bytesPerSec + ' bytes/sec)'));
-//			console.log(mb.channelUpdateCounts);
+			console.log('    updates per channel: ' + mb.channelUpdateCounts.toString());
 			return 'done';
 		}
 		return '';
@@ -678,21 +644,20 @@ function runAllTests() {
 
 	runTests([
 		ConnectivityTest, // this must be the first test
-// 		Test1,
-// 		Test2,
-// 		Test3,
-// 		Test4,
-// 		Test5,
+		Test2,
+		Test3,
+		Test4,
+		Test5,
 		Test6,
 		Test7,
 		Test8,
 		Test9,
 		Test10,
 		Test11,
-		Test20,
-		Test21
+		Test12,
+		Test13,
+		Test14
 	]);
 }
 
 runAllTests();
-//mb.connect();
