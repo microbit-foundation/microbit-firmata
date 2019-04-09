@@ -1,6 +1,6 @@
 {
   "name": "mbFirmata",
-  "version": "0.9",
+  "version": "1.0.0",
   "description": "The micro:bit runtime common abstraction with examples.",
   "license": "MIT",
   "dependencies": {

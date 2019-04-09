@@ -140,8 +140,8 @@ static void reportFirmwareVersion() {
 	// The softdevice version can be found by looking up the firmward ID (FWID) here:
 	// https://devzone.nordicsemi.com/f/nordic-q-a/1171/how-do-i-access-softdevice-version-string
 
-	int major = 0;
-	int minor = 9;
+	int major = 1;
+	int minor = 0;
 	char s[100];
 
 	ble_version_t bleInfo;
