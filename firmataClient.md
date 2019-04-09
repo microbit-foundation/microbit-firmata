@@ -138,8 +138,8 @@ one state change per millisecond) cannot be tracked reliably.
 		Start tracking the given pin as a digital input. The optional mode can be
 		0 (no pullup or pulldown), 1 (pullup resistor), or 2 (pulldown resistor).
 		It defaults to 0.</dd>
-	<dt>stopTrackingDigitalPin(pinNum)</dt><dd>
-		Stop tracking the given pin as a digital input.</dd>
+	<dt>stopTrackingDigitalPins()</dt><dd>
+		Stop tracking all pins as digital inputs.</dd>
 	<dt>setPinMode(pinNum, mode)</dt><dd>
 		Set the given pin to one of the Firmata pin mode constants:
 		DIGITAL_INPUT, INPUT_PULLUP, INPUT_PULLDOWN, DIGITAL_OUTPUT, ANALOG_INPUT, or PWM.</dd>

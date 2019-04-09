@@ -453,12 +453,12 @@ class MicrobitFirmataClient {
 		this.myPort.write([this.STREAM_DIGITAL | port, 1]);
 	}
 
-	stopTrackingDigitalPin(pinNum) {
-		// Stop tracking the given pin as a digital input.
+	stopTrackingDigitalPins() {
+		// Stop tracking all digital pins.
 
-		if ((pinNum < 0) || (pinNum > 20)) return;
-		var port = pinNum >> 3;
-		this.myPort.write([this.STREAM_DIGITAL | port, 0]);
+		for (var i = 0; i < 3; i++) {
+			this.myPort.write([this.STREAM_DIGITAL | i, 0]);
+		}
 	}
 
 	clearChannelData() {
