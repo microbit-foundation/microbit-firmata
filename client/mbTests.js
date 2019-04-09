@@ -23,8 +23,8 @@ SOFTWARE.
 */
 
 /* To do:
-  [ ] digital input pins 0-5 (with display disabled)
-  [ ] analog input pins 0-5 (with display disabled)
+  [ ] digital input pins 0-2 (with display disabled)
+  [ ] analog input pins 0-2 (with display disabled)
   [ ] digital output pins 0-2
   [ ] pwm output pins 0-2
   [ ] touch input tests
@@ -338,7 +338,7 @@ class Test4NoLight {
 	}
 }
 
-class Test5 {
+class Test20 {
 	testName() { return 'Stress test, single channel'; }
 	constructor() {
 		mb.enableDisplay(false);
@@ -369,7 +369,7 @@ class Test5 {
 	}
 }
 
-class Test6 {
+class Test21 {
 	testName() { return 'Stress test, 16 channels'; }
 	constructor() {
 		mb.enableDisplay(false);
@@ -534,6 +534,89 @@ class Test9 {
 	}
 }
 
+class Test10 {
+	testName() { return 'Read analog input pins 0-2.'; }
+	constructor() {
+		keyPressed = false;
+		this.firstTime = true;
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			mb.setAnalogSamplingInterval(100);
+			for (var i = 0; i < 3; i++) {
+				mb.setPinMode(i, mb.ANALOG_INPUT);
+				mb.streamAnalogChannel(i);
+			}
+			mb.clearChannelData();
+			clearScreen();
+			moveCursorTo(5, 0);
+			console.log(this.testName());
+			console.log('Touch each pin with your finger to see value change. Press any key to exit.');
+		}
+		this.showSensors();
+		if (keyPressed) {
+			for (var i = 0; i < 3; i++) mb.stopStreamingAnalogChannel(i);
+			mb.enableDisplay(true);
+			moveCursorTo(6, 0);
+			return 'done';
+		}
+		return '';
+	}
+	showSensors() {
+		var channelNames = ['Pin 0', 'Pin 1', 'Pin 2'];
+		for (var i = 0; i < 3; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			eraseToEndOfLine();
+			moveCursorTo(line, 0);
+			process.stdout.write(channelNames[i]);
+			moveCursorTo(line, 10);
+			process.stdout.write(mb.analogChannel[i].toString());
+		}
+	}
+}
+
+class Test11 {
+	testName() { return 'Read digital input pins 0-2.'; }
+	constructor() {
+		keyPressed = false;
+		this.firstTime = true;
+	}
+	step() {
+		if (this.firstTime) {
+			this.firstTime = false;
+			mb.setAnalogSamplingInterval(100);
+			for (var i = 0; i < 3; i++) mb.trackDigitalPin(i, 1);
+			mb.clearChannelData();
+			clearScreen();
+			moveCursorTo(5, 0);
+			console.log(this.testName());
+			console.log('Connect each pin to GND see value change. Press any key to exit.');
+		}
+		this.showSensors();
+		if (keyPressed) {
+			mb.stopTrackingDigitalPins();
+			mb.enableDisplay(true);
+			moveCursorTo(6, 0);
+			return 'done';
+		}
+		return '';
+	}
+	showSensors() {
+		var channelNames = ['Pin 0:', 'Pin 1:', 'Pin 2:'];
+		for (var i = 0; i < 3; i++) {
+			var line = i + 1;
+			moveCursorTo(line, 0);
+			eraseToEndOfLine();
+			process.stdout.write(channelNames[i]);
+			moveCursorTo(line, 9);
+			process.stdout.write(mb.digitalInput[i] ? 'High' : 'Low');
+		}
+		moveCursorTo(7, 0);
+	}
+}
+
 // Run all tests
 
 function runAllTests() {
@@ -550,7 +633,8 @@ function runAllTests() {
 // 		Test6,
 // 		Test7,
 //		Test8,
-		Test9
+//		Test9,
+		Test11
 	]);
 }
 
