@@ -1,0 +1,74 @@
+#################
+# Project files #
+#################
+.build
+projectfiles
+
+# yotta build folders
+yotta_targets
+yotta_modules
+.yotta.json
+
+# Python byte-compiled optimized files
+__pycache__/
+*.py[cod]
+
+# Node related
+package-lock.json
+node_modules
+
+############
+# OS files #
+############
+# Windows thumbnail cache files
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+
+# Windows Dump file
+*.stackdump
+
+# Windows Folder config file
+[Dd]esktop.ini
+
+# Windows Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows shortcuts
+*.lnk
+
+# macOS General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS Thumbnails
+._*
+
+# macOS Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# macOS Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux temporary files which can be created if a process still has a handle open of a deleted file
+.fuse_hidden*
+
+# KDE directory preferences
+.directory
+
+# Linux trash folder which might appear on any partition or disk
+.Trash-*
+
+# Linux .nfs files are created when an open file is removed but is still being accessed
+.nfs*
