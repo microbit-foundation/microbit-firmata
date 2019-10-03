@@ -19,14 +19,14 @@ the micro:bit over a USB-serial connection.
 
 A precompiled .hex file is provided for easy firmware installation (so you don't need
 to compile it yourself) and a Javascript test suite is provided to test and demonstrate
-the system.
+the system. This precompiled hex can be found as part of the latest GitHub Release.
 
 ### Installing Firmata on your BBC micro:bit
 
 To install the Firmata firmware, plug in your BBC micro:bit, then drag and drop
-the most recent .hex file from the **precompiled** folder (e.g. **microbit-firmata-v0.9.hex**)
-onto the micro:bit's virtual USB drive. The yellow light will flash for a few seconds
-as the firmware loads. When it stops, the Firmata firmware is installed.
+the most recent .hex file from the [**GitHub Releases**](https://github.com/microbit-foundation/microbit-firmata/releases) onto the micro:bit's virtual USB drive. The yellow
+light will flash for a few seconds as the firmware loads. When it stops, the Firmata
+firmware is installed.
 
 **Note:** If you install another program on your micro:bit you'll need to re-install the
 Firmata firmware before working with Firmata again. Fortunately, that's easy and only takes
@@ -92,9 +92,6 @@ runs in Node.js. This folder also contains the micro:bit Firmata test suite.
 Besides confirming that Firmata works, the test suite is a handy source of code
 you can copy and modify to use in your own applications.
 
-The **precompiled** folder contains precompiled .hex files for the latest versions of
-the firmware.
-
 The **firmware** folder contains the C++ source code for the Firmata firmware that runs in
 the micro:bit. It's easier to use the precompiled .hex file than to compile from source.
 
@@ -103,8 +100,9 @@ Additional MarkDown files document the client API and the firmware implementatio
 ### Building the firmware from source
 
 If you just want to use Firmata, you don't need to build it yourself. The latest
-compiled version is available in the **precompiled** folder. You can install it just
-by dragging and dropping the .hex file onto the USB drive of your BBC micro:bit.
+compiled version is available **precompiled** folder or from a GitHub release. You
+can install it just by dragging and dropping the .hex file onto the USB drive of your
+BBC micro:bit.
 
 However, if you'd like to extend or improve the firmware,
 then building it will be the first step.
@@ -132,3 +130,5 @@ You can use the test suite to confirm that it works.
 ### License
 
 This software is under the MIT open source license.
+
+SPDX-License-Identifier: MIT
