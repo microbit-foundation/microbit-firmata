@@ -33,7 +33,16 @@ SOFTWARE.
  */
 
 let serialport;
-const {TextEncoder, TextDecoder} = require('util');
+let TextEncoder, TextDecoder;
+
+// If running outside of the browser, create the TextEncoder/TextDecoder
+if (typeof window === 'undefined' || !window.TextEncoder) {
+  TextEncoder = require('util').TextEncoder;
+  TextDecoder = require('util').TextDecoder;
+} else {
+  TextEncoder = window.TextEncoder;
+  TextDecoder = window.TextDecoder;
+}
 
 class MicrobitFirmataClient {
 	constructor(port) {
