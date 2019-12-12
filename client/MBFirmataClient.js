@@ -119,10 +119,13 @@ class MicrobitFirmataClient {
 
 	// Connecting/Disconnecting
 
+  /**
+   * @returns {Promise} when port has been opened or if no port found
+   */
 	connect() {
 		// Search serial port list for a connected micro:bit and, if found, open that port.
 
-		serialport.list()
+		return serialport.list()
 		.then((ports) => {
 			for (var i = 0; i < ports.length; i++) {
 				var p = ports[i];
@@ -137,13 +140,17 @@ class MicrobitFirmataClient {
 				// Attempt to open the serial port on the given port name.
 				// If this fails it will fail with an UnhandledPromiseRejectionWarning.
 				console.log("Opening", portName);
-				this.setSerialPort(new serialport(portName, { baudRate: 57600 }));
+				return this.setSerialPort(new serialport(portName, { baudRate: 57600 }));
 			} else {
 				console.log("No micro:bit found; is your board plugged in?");
+				return null;
 			}
 		});
 	}
 
+  /**
+   * @returns {Promise} when board version is set
+   */
 	setSerialPort(port) {
 		// Use the given port. Assume the port has been opened by the caller.
 
@@ -161,7 +168,7 @@ class MicrobitFirmataClient {
 
 		// get the board serial number (used to determine board version)
 		this.boardVersion = '';
-		serialport.list()
+		return serialport.list()
 		.then((ports) => {
 			for (var i = 0; i < ports.length; i++) {
 				var p = ports[i];
