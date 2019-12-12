@@ -32,11 +32,12 @@ SOFTWARE.
  * Clients can listen for DAL events, digital pin changes, or analog channel updates.
  */
 
-const serialport = require('serialport');
+let serialport;
 const {TextEncoder, TextDecoder} = require('util');
 
 class MicrobitFirmataClient {
-	constructor() {
+	constructor(port) {
+    serialport = port ? port : require('serialport');
 		this.addConstants();
 		this.myPort = null;
 		this.inbuf = new Uint8Array(1000);
