@@ -116,7 +116,7 @@ class MicrobitFirmataClient {
 		.then((ports) => {
 			for (var i = 0; i < ports.length; i++) {
 				var p = ports[i];
-				if ((p.vendorId == '0d28') && (p.productId == '0204')) {
+				if ((p.vendorId == "0d28" || p.vendorId == "0D28") && (p.productId == '0204')) {
 					return p.comName;
 				}
 			}
