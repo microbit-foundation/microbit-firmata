@@ -232,7 +232,7 @@ static void setDigitalPin(int pin, int value) {
 
 	if ((pin < 0) || (pin >= PIN_COUNT)) return;
 	if (DIGITAL_OUTPUT != firmataPinMode[pin]) return;
-	if (displayEnabled && (pin > 2)) return; // uBit.display uses most pins except 0-2
+	if (displayEnabled && (pin > 2)) return; // display uses most pins except 0-2
 
 	firmataPinState[pin] = value ? 1 : 0;
 
@@ -286,7 +286,7 @@ static void streamAnalogChannel(uint8_t chan, uint8_t isOn) {
 	isStreamingChannel[chan] = isOn;
 	if (chan < 6) {
 		int pin = (5 == chan) ? 10 : chan; // channels 0-4 are pins 0-4; channel 5 is pin 10
-		if (displayEnabled && (pin > 2)) { // uBit.display uses pins 3-5
+		if (displayEnabled && (pin > 2)) { // display uses pins 3-5
 			isStreamingChannel[chan] = false;
 			return;
 		}
@@ -312,7 +312,7 @@ static void analogDisable() {
 	/* Comment from DAL MicroBitLightSensor.cpp:
 	*
 	* Forcibly disable AnalogIn, otherwise it will remain in possession of the GPIO channel
-	* it is using, meaning that the uBit.display will not be able to use a channel (COL).
+	* it is using, meaning that the display will not be able to use a channel (COL).
 	*
 	* This is required as per PAN 3, details of which can be found here:
 	*
@@ -367,7 +367,7 @@ static void display_plot(int sysexStart, int argBytes) {
 
 static void sendScrollDoneEvent() {
 	// Used to send an animation_complete event (i.e. scrolling done)
-	// when a scrolling operation is invoked when the uBit.display is disabled.
+	// when a scrolling operation is invoked when the display is disabled.
 
 	const int source_id = 6; // uBit.display
 	const int event_id = 1; // animation_complete
@@ -427,12 +427,12 @@ static void setTouchMode(int sysexStart, int argBytes) {
 }
 
 static void setDisplayEnable(int isEnabled) {
-	// Disable or re-enable the uBit.display. (The uBit.display is initially enabled at startup.)
-	// When the uBit.display is disabled, pins 0-5 can be used for other purposes.
-	// Re-enabling the uBit.display (even when already enabled) turns off light sensing
+	// Disable or re-enable the display. (The display is initially enabled at startup.)
+	// When the display is disabled, pins 0-5 can be used for other purposes.
+	// Re-enabling the display (even when already enabled) turns off light sensing
 	// until the next time a light sensor value is requested.
 
-	// turn off uBit.display
+	// turn off display
 	uBit.display.stopAnimation();
 	uBit.display.clear();
 	uBit.display.disable();
@@ -614,16 +614,16 @@ static int analogChannelValue(uint8_t chan) {
 
 	if (chan > 15) return 0;
 	if (chan < 6) {
-		if (displayEnabled && (chan > 2)) return 0; // uBit.display uses most pins except 0-2
+		if (displayEnabled && (chan > 2)) return 0; // display uses most pins except 0-2
 		int pin = (5 == chan) ? 10 : chan; // channels 0-4 are pins 0-4; channel 5 is pin 10
 		if (ANALOG_INPUT != firmataPinMode[pin]) return 0;
 		return uBit.io.pin[pin].getAnalogValue();
 	}
 	if (6 == chan) return 0;
 	if (7 == chan) return 0;
-	if (8 == chan) return uBit.accelerometer.getX(); // uBit.accelerometer x
-	if (9 == chan) return uBit.accelerometer.getY(); // uBit.accelerometer y
-	if (10 == chan) return uBit.accelerometer.getZ(); // uBit.accelerometer z
+	if (8 == chan) return uBit.accelerometer.getX(); // accelerometer x
+	if (9 == chan) return uBit.accelerometer.getY(); // accelerometer y
+	if (10 == chan) return uBit.accelerometer.getZ(); // accelerometer z
 	if (11 == chan) {
 		// When enabled, the light sensor monopolizes the A/D converter, preventing correct
 		// analog values from being read from input pins. Thus, the light sensor is disabled
@@ -634,9 +634,9 @@ static int analogChannelValue(uint8_t chan) {
 		return (displayEnabled && lightSensorEnabled) ? uBit.display.readLightLevel() : 0;
 	}
 	if (12 == chan) return uBit.thermometer.getTemperature(); // temperature sensor
-	if (13 == chan) return uBit.compass.getX() >> 5; // uBit.compass x
-	if (14 == chan) return uBit.compass.getY() >> 5; // uBit.compass y
-	if (15 == chan) return uBit.compass.getZ() >> 5; // uBit.compass z
+	if (13 == chan) return uBit.compass.getX() >> 5; // compass x
+	if (14 == chan) return uBit.compass.getY() >> 5; // compass y
+	if (15 == chan) return uBit.compass.getZ() >> 5; // compass z
 
 	return 0;
 }
@@ -677,7 +677,7 @@ static void registerEventListeners() {
 	uBit.messageBus.listen(MICROBIT_ID_BUTTON_A, MICROBIT_EVT_ANY, onEvent);
 	uBit.messageBus.listen(MICROBIT_ID_BUTTON_B, MICROBIT_EVT_ANY, onEvent);
 
-	// uBit.accelerometer gesture events (e.g. shake)
+	// accelerometer gesture events (e.g. shake)
 	uBit.messageBus.listen(MICROBIT_ID_GESTURE, MICROBIT_EVT_ANY, onEvent);
 
 	// touch pin events
@@ -708,12 +708,12 @@ void stepFirmata() {
 	streamDigitalPins();
 	streamSensors();
 
-	// Note: The following code is essential to avoid overrunning the uBit. uBit.serial line
+	// Note: The following code is essential to avoid overrunning the serial line
 	// and losing or corrupting data, A fixed delay works, too, but a delay
 	// long enough to handle the worst case (streaming 16 channels of analog data
 	// and three digital ports, a total of 3 * 19 = 57 bytes) reduces the maximum
 	// sampling rate for a single channel. The code below is like a bulk SYNC_SPINWAIT
-	// for all uBit.serial data queued by the last call to stepFirmata().
+	// for all serial data queued by the last call to stepFirmata().
 
 	while ( uBit.serial.txBufferedSize() > 0) /* wait for all bytes to be sent */;
 }
