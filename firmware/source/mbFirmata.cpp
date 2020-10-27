@@ -23,8 +23,8 @@ SOFTWARE.
 */
 
 #include <MicroBit.h>
-#include <mbed.h>
 #include <ble.h>
+#include <stdio.h>
 #include "mbFirmata.h"
 
 // DAL Components
@@ -37,26 +37,12 @@ SOFTWARE.
 // scheduler, Firmata instantiates the individual DAL components it needs rather than using
 // the MicroBit object.
 
-MicroBitI2C i2c(I2C_SDA0, I2C_SCL0);
-MicroBitMessageBus messageBus;
-MicroBitSerial serial(USBTX, USBRX);
-MicroBitStorage storage;
-
-MicroBitAccelerometer &accelerometer = MicroBitAccelerometer::autoDetect(i2c);
-MicroBitButton buttonA(MICROBIT_PIN_BUTTON_A, MICROBIT_ID_BUTTON_A);
-MicroBitButton buttonB(MICROBIT_PIN_BUTTON_B, MICROBIT_ID_BUTTON_B);
-MicroBitCompass &compass = MicroBitCompass::autoDetect(i2c);
-MicroBitDisplay display;
-MicroBitThermometer thermometer(storage);
-
-MicroBitIO io(
-	MICROBIT_PIN_P0, MICROBIT_PIN_P1, MICROBIT_PIN_P2, MICROBIT_PIN_P3,
-	MICROBIT_PIN_P4, MICROBIT_PIN_P5, MICROBIT_PIN_P6, MICROBIT_PIN_P7,
-	MICROBIT_PIN_P8, MICROBIT_PIN_P9, MICROBIT_PIN_P10, MICROBIT_PIN_P11,
-	MICROBIT_PIN_P12, MICROBIT_PIN_P13, MICROBIT_PIN_P14, MICROBIT_PIN_P15,
-	MICROBIT_PIN_P16, /* 17-18 */ MICROBIT_PIN_P19, MICROBIT_PIN_P20);
+MicroBit uBit;
 
 // Variables
+
+#define MBED_LIBRARY_VERSION 0
+#define MICROBIT_DAL_VERSION "CODAL"
 
 #define IN_BUF_SIZE 250
 static uint8_t inbuf[IN_BUF_SIZE];
@@ -84,28 +70,28 @@ static int lastSampleTime = 0;
 
 static void receiveData() {
 	while (inbufCount < IN_BUF_SIZE) {
-		int byte = serial.read(ASYNC);
+		int byte = uBit.serial.read(ASYNC);
 		if (byte < 0) return;
 		inbuf[inbufCount++] = byte;
 	}
 }
 
 static void sendByte(uint8_t b) {
-	serial.sendChar(b, ASYNC);
+	 uBit.serial.sendChar(b, ASYNC);
 }
 
 static void send2Bytes(uint8_t b1, uint8_t b2) {
-	serial.sendChar(b1, ASYNC);
-	serial.sendChar(b2, ASYNC);
+	 uBit.serial.sendChar(b1, ASYNC);
+	 uBit.serial.sendChar(b2, ASYNC);
 }
 
 static void send3Bytes(uint8_t b1, uint8_t b2, uint8_t b3) {
-	serial.sendChar(b1, ASYNC);
-	serial.sendChar(b2, ASYNC);
-	serial.sendChar(b3, ASYNC);
+	 uBit.serial.sendChar(b1, ASYNC);
+	 uBit.serial.sendChar(b2, ASYNC);
+	 uBit.serial.sendChar(b3, ASYNC);
 }
 
-static uint32_t now() { return us_ticker_read() / 1000L; }
+static uint32_t now() { return system_timer_current_time() / 1000L; }
 
 // Debugging
 
@@ -147,7 +133,7 @@ static void reportFirmwareVersion() {
 	ble_version_t bleInfo;
 	sd_ble_version_get(&bleInfo);
 	sprintf(s, "[based on DAL %s; mbed %d; softdeviceFWID %d] micro:bit Firmata",
-		microbit_dal_version(), MBED_LIBRARY_VERSION, bleInfo.subversion_number);
+		MICROBIT_DAL_VERSION, MBED_LIBRARY_VERSION, bleInfo.subversion_number);
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
 	send2Bytes(major, minor); // firmware version (vs. Firmata protocol version)
@@ -216,7 +202,7 @@ static void setPinMode(int pin, int mode) {
 		if ((pin > 4) && (pin != 10)) return; // pin is not analog capable
 	}
 
-	if (displayEnabled && (pin > 2)) return; // display uses most pins except 0-2
+	if (displayEnabled && (pin > 2)) return; // uBit.display uses most pins except 0-2
 
 	firmataPinMode[pin] = mode;
 	firmataPinState[pin] = UNKNOWN_PIN_STATE;
@@ -224,19 +210,19 @@ static void setPinMode(int pin, int mode) {
 	// set actual pin mode
 	if (DIGITAL_OUTPUT == mode) {
 		firmataPinState[pin] = 0;
-		io.pin[pin].setDigitalValue(0);
+		uBit.io.pin[pin].setDigitalValue(0);
 	} else if (PWM == mode) {
 		firmataPinState[pin] = 0;
-		io.pin[pin].setAnalogValue(0);
+		uBit.io.pin[pin].setAnalogValue(0);
 	} else if (INPUT_PULLUP == mode) {
-		io.pin[pin].getDigitalValue();
-		io.pin[pin].setPull(PullUp);
+		uBit.io.pin[pin].getDigitalValue();
+		uBit.io.pin[pin].setPull(PullMode::Up);
 	} else if (INPUT_PULLDOWN == mode) {
-		io.pin[pin].getDigitalValue();
-		io.pin[pin].setPull(PullDown);
+		uBit.io.pin[pin].getDigitalValue();
+		uBit.io.pin[pin].setPull(PullMode::Down);
 	} else {
-		io.pin[pin].getDigitalValue();
-		io.pin[pin].setPull(PullNone);
+		uBit.io.pin[pin].getDigitalValue();
+		uBit.io.pin[pin].setPull(PullMode::None);
 	}
 }
 
@@ -246,12 +232,12 @@ static void setDigitalPin(int pin, int value) {
 
 	if ((pin < 0) || (pin >= PIN_COUNT)) return;
 	if (DIGITAL_OUTPUT != firmataPinMode[pin]) return;
-	if (displayEnabled && (pin > 2)) return; // display uses most pins except 0-2
+	if (displayEnabled && (pin > 2)) return; // uBit.display uses most pins except 0-2
 
 	firmataPinState[pin] = value ? 1 : 0;
 
 	// set actual pin output
-	io.pin[pin].setDigitalValue(firmataPinState[pin]);
+	uBit.io.pin[pin].setDigitalValue(firmataPinState[pin]);
 }
 
 static void setDigitalPort(int port, int pinMask) {
@@ -272,7 +258,7 @@ static void setAnalogPin(int pin, int value) {
 	firmataPinState[pin] = value;
 
 	// set actual pin output
-	io.pin[pin].setAnalogValue(value);
+	uBit.io.pin[pin].setAnalogValue(value);
 }
 
 static void extendedAnalogWrite(int sysexStart, int argBytes) {
@@ -300,13 +286,13 @@ static void streamAnalogChannel(uint8_t chan, uint8_t isOn) {
 	isStreamingChannel[chan] = isOn;
 	if (chan < 6) {
 		int pin = (5 == chan) ? 10 : chan; // channels 0-4 are pins 0-4; channel 5 is pin 10
-		if (displayEnabled && (pin > 2)) { // display uses pins 3-5
+		if (displayEnabled && (pin > 2)) { // uBit.display uses pins 3-5
 			isStreamingChannel[chan] = false;
 			return;
 		}
-		io.pin[pin].getDigitalValue(); // put in digital read mode
-		io.pin[pin].setPull(PullNone); // turn off pullup/down
-		if (isOn) io.pin[pin].getAnalogValue();
+		uBit.io.pin[pin].getDigitalValue(); // put in digital read mode
+		uBit.io.pin[pin].setPull(PullMode::None); // turn off pullup/down
+		if (isOn) uBit.io.pin[pin].getAnalogValue();
 	}
 }
 
@@ -326,41 +312,43 @@ static void analogDisable() {
 	/* Comment from DAL MicroBitLightSensor.cpp:
 	*
 	* Forcibly disable AnalogIn, otherwise it will remain in possession of the GPIO channel
-	* it is using, meaning that the display will not be able to use a channel (COL).
+	* it is using, meaning that the uBit.display will not be able to use a channel (COL).
 	*
 	* This is required as per PAN 3, details of which can be found here:
 	*
 	* https://www.nordicsemi.com/eng/nordic/download_resource/24634/5/88440387
 	*/
 
-	NRF_ADC->ENABLE = ADC_ENABLE_ENABLE_Disabled;
-	NRF_ADC->CONFIG =
+    /*
+	NRF52ADC->ENABLE = ADC_ENABLE_ENABLE_Disabled;
+	NRF52ADC->CONFIG =
 		(ADC_CONFIG_RES_8bit		<< ADC_CONFIG_RES_Pos) |
 		(ADC_CONFIG_INPSEL_SupplyTwoThirdsPrescaling << ADC_CONFIG_INPSEL_Pos) |
 		(ADC_CONFIG_REFSEL_VBG		<< ADC_CONFIG_REFSEL_Pos) |
 		(ADC_CONFIG_PSEL_Disabled	<< ADC_CONFIG_PSEL_Pos) |
 		(ADC_CONFIG_EXTREFSEL_None	<< ADC_CONFIG_EXTREFSEL_Pos);
+    */
 }
 
 static void display_clear() {
-	display.stopAnimation();
-	display.clear();
+	uBit.display.stopAnimation();
+	uBit.display.clear();
 }
 
 static void display_show(int sysexStart, int argBytes) {
 	if (argBytes < 26) return;
 	int isGrayscale = inbuf[sysexStart + 1];
 	if (isGrayscale) {
-		display.setDisplayMode(DISPLAY_MODE_GREYSCALE);
+		uBit.display.setDisplayMode(DISPLAY_MODE_GREYSCALE);
 	} else {
-		display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE);
+		uBit.display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE);
 	}
 	for (int y = 0; y < 5; y++) {
 		for (int x = 0; x < 5; x++) {
 			int i = (5 * y) + x;
 			int level = inbuf[sysexStart + i + 2];
 			level = (127 == level) ? 255 : (2 * level); // covert from 7 to 8 bit range
-			display.image.setPixelValue(x, y, level);
+			uBit.display.image.setPixelValue(x, y, level);
 		}
 	}
 }
@@ -372,16 +360,16 @@ static void display_plot(int sysexStart, int argBytes) {
 	int level = inbuf[sysexStart + 3];
 	level = (127 == level) ? 255 : (2 * level); // covert from 7 to 8 bit range
 	if ((level > 0) && (level < 255)) {
-		display.setDisplayMode(DISPLAY_MODE_GREYSCALE);
+		uBit.display.setDisplayMode(DISPLAY_MODE_GREYSCALE);
 	}
-	display.image.setPixelValue(x, y, level);
+	uBit.display.image.setPixelValue(x, y, level);
 }
 
 static void sendScrollDoneEvent() {
 	// Used to send an animation_complete event (i.e. scrolling done)
-	// when a scrolling operation is invoked when the display is disabled.
+	// when a scrolling operation is invoked when the uBit.display is disabled.
 
-	const int source_id = 6; // display
+	const int source_id = 6; // uBit.display
 	const int event_id = 1; // animation_complete
 	send2Bytes(SYSEX_START, MB_REPORT_EVENT);
 	send3Bytes(source_id & 0x7F, (source_id >> 7) & 0x7F, (source_id >> 14) & 0x7F);
@@ -393,7 +381,7 @@ static void scrollString(int sysexStart, int argBytes) {
 	if (argBytes < 1) return;
 	int scrollSpeed = inbuf[sysexStart + 1];
 	if (!displayEnabled) sendScrollDoneEvent();
-	display.stopAnimation();
+	uBit.display.stopAnimation();
 	int utf8Bytecount = (argBytes - 1) / 2;
 	if (utf8Bytecount > MAX_SCROLLING_STRING) utf8Bytecount = MAX_SCROLLING_STRING;
 	int srcIndex = sysexStart + 2;
@@ -402,7 +390,7 @@ static void scrollString(int sysexStart, int argBytes) {
 		srcIndex += 2;
 	}
 	scrollingString[utf8Bytecount] = 0; // null terminator
-	display.scrollAsync(scrollingString, scrollSpeed);
+	uBit.display.scrollAsync(scrollingString, scrollSpeed);
 }
 
 static void scrollNumber(int sysexStart, int argBytes) {
@@ -414,9 +402,9 @@ static void scrollNumber(int sysexStart, int argBytes) {
 	n |= inbuf[sysexStart + 5] << 21;
 	n |= inbuf[sysexStart + 6] << 28;
 	if (!displayEnabled) sendScrollDoneEvent();
-	display.stopAnimation();
+	uBit.display.stopAnimation();
 	sprintf(scrollingString, "%d", n);
-	display.scrollAsync(scrollingString, scrollSpeed);
+	uBit.display.scrollAsync(scrollingString, scrollSpeed);
 }
 
 static void setTouchMode(int sysexStart, int argBytes) {
@@ -428,35 +416,35 @@ static void setTouchMode(int sysexStart, int argBytes) {
 	int touchModeOn = (inbuf[sysexStart + 2] != 0);
 	if (pin < 3) {
 		if (touchModeOn) {
-			io.pin[pin].isTouched();
+			uBit.io.pin[pin].isTouched();
 		} else {
 			// Note: disableEvents() is a private method in the DAL. Thus, there does not seem
 			// to be any way to disable touch events once a pin has been put into touch mode
 			// (except via hardware reset, of course).
-			// io.pin[pin].disableEvents();
+			// uBit.io.pin[pin].disableEvents();
 		}
 	}
 }
 
 static void setDisplayEnable(int isEnabled) {
-	// Disable or re-enable the display. (The display is initially enabled at startup.)
-	// When the display is disabled, pins 0-5 can be used for other purposes.
-	// Re-enabling the display (even when already enabled) turns off light sensing
+	// Disable or re-enable the uBit.display. (The uBit.display is initially enabled at startup.)
+	// When the uBit.display is disabled, pins 0-5 can be used for other purposes.
+	// Re-enabling the uBit.display (even when already enabled) turns off light sensing
 	// until the next time a light sensor value is requested.
 
-	// turn off display
-	display.stopAnimation();
-	display.clear();
-	display.disable();
+	// turn off uBit.display
+	uBit.display.stopAnimation();
+	uBit.display.clear();
+	uBit.display.disable();
 
 	// disable light sensing
-	display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE);
+	uBit.display.setDisplayMode(DISPLAY_MODE_BLACK_AND_WHITE);
 	analogDisable(); // in case light sensor was in use
 	lightSensorEnabled = false; // can reenable by setting analog channel 11 to analog input
 
 	// re-enable if isEnabled is true
 	displayEnabled = isEnabled;
-	if (displayEnabled) display.enable();
+	if (displayEnabled) uBit.display.enable();
 }
 
 static void enableDisplay(int sysexStart, int argBytes) {
@@ -606,7 +594,7 @@ static void streamDigitalPins() {
 						(INPUT_PULLUP == mode) ||
 						(INPUT_PULLDOWN == mode)) {
 							int oldState = firmataPinState[pin];
-							int newState = io.pin[pin].getDigitalValue();
+							int newState = uBit.io.pin[pin].getDigitalValue();
 							if (newState != oldState) portChanged = true;
 							firmataPinState[pin] = newState;
 							if (newState) bitMask |= (1 << i);
@@ -622,20 +610,20 @@ static void streamDigitalPins() {
 
 static int analogChannelValue(uint8_t chan) {
 	// Return the value for the given analog channel (0-15).
-	// For the micro:bit, sensors such as the accelerometer are mapped to analog channels.
+	// For the micro:bit, sensors such as the uBit.accelerometer are mapped to analog channels.
 
 	if (chan > 15) return 0;
 	if (chan < 6) {
-		if (displayEnabled && (chan > 2)) return 0; // display uses most pins except 0-2
+		if (displayEnabled && (chan > 2)) return 0; // uBit.display uses most pins except 0-2
 		int pin = (5 == chan) ? 10 : chan; // channels 0-4 are pins 0-4; channel 5 is pin 10
 		if (ANALOG_INPUT != firmataPinMode[pin]) return 0;
-		return io.pin[pin].getAnalogValue();
+		return uBit.io.pin[pin].getAnalogValue();
 	}
 	if (6 == chan) return 0;
 	if (7 == chan) return 0;
-	if (8 == chan) return accelerometer.getX(); // accelerometer x
-	if (9 == chan) return accelerometer.getY(); // accelerometer y
-	if (10 == chan) return accelerometer.getZ(); // accelerometer z
+	if (8 == chan) return uBit.accelerometer.getX(); // uBit.accelerometer x
+	if (9 == chan) return uBit.accelerometer.getY(); // uBit.accelerometer y
+	if (10 == chan) return uBit.accelerometer.getZ(); // uBit.accelerometer z
 	if (11 == chan) {
 		// When enabled, the light sensor monopolizes the A/D converter, preventing correct
 		// analog values from being read from input pins. Thus, the light sensor is disabled
@@ -643,12 +631,12 @@ static int analogChannelValue(uint8_t chan) {
 		// be disabled again by invoking the setDisplayEnable command. (Any change to the
 		// display enabled state disables the light sensor until it explicitly re-enabled.)
 
-		return (displayEnabled && lightSensorEnabled) ? display.readLightLevel() : 0;
+		return (displayEnabled && lightSensorEnabled) ? uBit.display.readLightLevel() : 0;
 	}
-	if (12 == chan) return thermometer.getTemperature(); // temperature sensor
-	if (13 == chan) return compass.getX() >> 5; // compass x
-	if (14 == chan) return compass.getY() >> 5; // compass y
-	if (15 == chan) return compass.getZ() >> 5; // compass z
+	if (12 == chan) return uBit.thermometer.getTemperature(); // temperature sensor
+	if (13 == chan) return uBit.compass.getX() >> 5; // uBit.compass x
+	if (14 == chan) return uBit.compass.getY() >> 5; // uBit.compass y
+	if (15 == chan) return uBit.compass.getZ() >> 5; // uBit.compass z
 
 	return 0;
 }
@@ -686,27 +674,29 @@ static void onEvent(MicroBitEvent evt) {
 
 static void registerEventListeners() {
 	// button events
-	messageBus.listen(MICROBIT_ID_BUTTON_A, MICROBIT_EVT_ANY, onEvent);
-	messageBus.listen(MICROBIT_ID_BUTTON_B, MICROBIT_EVT_ANY, onEvent);
+	uBit.messageBus.listen(MICROBIT_ID_BUTTON_A, MICROBIT_EVT_ANY, onEvent);
+	uBit.messageBus.listen(MICROBIT_ID_BUTTON_B, MICROBIT_EVT_ANY, onEvent);
 
-	// accelerometer gesture events (e.g. shake)
-	messageBus.listen(MICROBIT_ID_GESTURE, MICROBIT_EVT_ANY, onEvent);
+	// uBit.accelerometer gesture events (e.g. shake)
+	uBit.messageBus.listen(MICROBIT_ID_GESTURE, MICROBIT_EVT_ANY, onEvent);
 
 	// touch pin events
-	messageBus.listen(7, MICROBIT_EVT_ANY, onEvent);
-	messageBus.listen(8, MICROBIT_EVT_ANY, onEvent);
-	messageBus.listen(9, MICROBIT_EVT_ANY, onEvent);
+	uBit.messageBus.listen(7, MICROBIT_EVT_ANY, onEvent);
+	uBit.messageBus.listen(8, MICROBIT_EVT_ANY, onEvent);
+	uBit.messageBus.listen(9, MICROBIT_EVT_ANY, onEvent);
 
 	// scrolling/animation complete event
-	messageBus.listen(MICROBIT_ID_DISPLAY, MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE, onEvent);
+	uBit.messageBus.listen(MICROBIT_ID_DISPLAY, MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE, onEvent);
 }
 
 // Entry Points
 
 void initFirmata() {
-	serial.baud(57600);
-	serial.setRxBufferSize(249);
-	serial.setTxBufferSize(249);
+     uBit.init();
+
+	 uBit.serial.setBaud(57600);
+	 uBit.serial.setRxBufferSize(249);
+	 uBit.serial.setTxBufferSize(249);
 
 	systemReset();
 	registerEventListeners();
@@ -718,12 +708,12 @@ void stepFirmata() {
 	streamDigitalPins();
 	streamSensors();
 
-	// Note: The following code is essential to avoid overrunning the serial line
+	// Note: The following code is essential to avoid overrunning the uBit. uBit.serial line
 	// and losing or corrupting data, A fixed delay works, too, but a delay
 	// long enough to handle the worst case (streaming 16 channels of analog data
 	// and three digital ports, a total of 3 * 19 = 57 bytes) reduces the maximum
 	// sampling rate for a single channel. The code below is like a bulk SYNC_SPINWAIT
-	// for all serial data queued by the last call to stepFirmata().
+	// for all uBit.serial data queued by the last call to stepFirmata().
 
-	while (serial.txBufferedSize() > 0) /* wait for all bytes to be sent */;
+	while ( uBit.serial.txBufferedSize() > 0) /* wait for all bytes to be sent */;
 }

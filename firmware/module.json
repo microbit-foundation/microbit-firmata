@@ -2,10 +2,12 @@
   "name": "mbFirmata",
   "version": "1.0.0",
   "description": "The micro:bit runtime common abstraction with examples.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
-    "microbit": "lancaster-university/microbit#v2.1.1"
+    "codal-microbit": "microbit-foundation/codal-microbit"
   },
   "targetDependencies": {},
-  "bin": "source"
+  "bin": "./source",
+  "private": true,
+  "author": ""
 }
