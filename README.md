@@ -116,7 +116,7 @@ Once you have verified your build toolchain works by building the `microbit-samp
 you can build the firmware as follows:
 
 	cd firmware
-	yt target bbc-microbit-classic-gcc
+	yt target bbc-microbit-classic-gcc@https://github.com/lancaster-university/yotta-target-bbc-microbit-classic-gcc
 	yt build
 
 The compiled firmware will be at:
