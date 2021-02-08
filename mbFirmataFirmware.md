@@ -76,7 +76,7 @@ He eventually succeeded with the Yotta Windows installer on Windows 10:
 Once the Yotta toolchain is set up, compling is easy. In the Yotta terminal window type:
 
 	cd firmware
-	yt target bbc-microbit-classic-gcc
+	yt target bbc-microbit-classic-gcc@https://github.com/lancaster-university/yotta-target-bbc-microbit-classic-gcc
 	yt build
 
 The output appears in the newly created folder **build/obbc-microbit-classic-gcc/source**
