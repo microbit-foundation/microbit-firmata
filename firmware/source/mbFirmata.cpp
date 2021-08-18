@@ -535,8 +535,8 @@ static void sendScrollDoneEvent() {
 	// Used to send an animation_complete event (i.e. scrolling done)
 	// when a scrolling operation is invoked when the display is disabled.
 
-	const int source_id = 6; // display
-	const int event_id = 1; // animation_complete
+	const int source_id = MICROBIT_ID_DISPLAY; // display
+	const int event_id = MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE; // animation_complete
 	send2Bytes(SYSEX_START, MB_REPORT_EVENT);
 	send3Bytes(source_id & 0x7F, (source_id >> 7) & 0x7F, (source_id >> 14) & 0x7F);
 	send3Bytes(event_id & 0x7F, (event_id >> 7) & 0x7F, (event_id >> 14) & 0x7F);
