@@ -136,28 +136,6 @@ void serial_setBaud(int baudrate) { serial.setBaud(baudrate); }
 
 static void analogDisable() { }
 
-void eventToExternal( int &source, int &value)
-{
-	switch ( source)
-	{ 
-		case DEVICE_ID_DISPLAY: // 7
-			source = 6;           // V1 MICROBIT_ID_DISPLAY
-			break;
-		case DEVICE_ID_GESTURE: // 13
-			source = 27;          // V1 MICROBIT_ID_GESTURE
-			break;
-		case ID_PIN_P0:         //100
-			source = 7;           // V1 MICROBIT_ID_IO_P0 
-			break;
-		case ID_PIN_P1:         //101
-			source = 8;           // V1 MICROBIT_ID_IO_P1
-			break;
-		case ID_PIN_P2:         //102
-			source = 9;           // V1 MICROBIT_ID_IO_P2
-			break;
-	}
-}
-
 #endif  // MICROBIT_CODAL
 
 ////////////////////////////////////////////////////////////////
@@ -247,10 +225,6 @@ static void analogDisable() {
 		(ADC_CONFIG_EXTREFSEL_None	<< ADC_CONFIG_EXTREFSEL_Pos);
 }
 
-void eventToExternal( int &source, int &value)
-{
-}
-
 #endif // !MICROBIT_CODAL
 
 ////////////////////////////////////////////////////////////////
@@ -338,8 +312,10 @@ static void reportFirmwareVersion() {
 	// The softdevice version can be found by looking up the firmward ID (FWID) here:
 	// https://devzone.nordicsemi.com/f/nordic-q-a/1171/how-do-i-access-softdevice-version-string
 
-	int major = 1;
-	int minor = 0;
+	// Some Event IDs changed between firmware 1.0 (DAL <= 2.1.1) and 1.1 (DAL >= 2.2.0-rc6 and CODAL)
+	// MICROBIT_ID_DISPLAY/GESTURE/IO_P0/IO_P1/IO_P2
+	int major = 1; 
+	int minor = 1;
 	char s[100];
 
 	ble_version_t bleInfo;
@@ -856,7 +832,6 @@ static void streamSensors() {
 static void onEvent(MicroBitEvent evt) {
 	int source_id = evt.source;
 	int event_id = evt.value;
-        eventToExternal( source_id, event_id);
 	send2Bytes(SYSEX_START, MB_REPORT_EVENT);
 	send3Bytes(source_id & 0x7F, (source_id >> 7) & 0x7F, (source_id >> 14) & 0x7F);
 	send3Bytes(event_id & 0x7F, (event_id >> 7) & 0x7F, (event_id >> 14) & 0x7F);
