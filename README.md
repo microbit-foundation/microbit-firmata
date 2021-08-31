@@ -151,6 +151,16 @@ Drag this file to your micro:bit's USB drive to install it.
 
 You can use the test suite to confirm that it works.
 
+### Creating a universal hex for micro:bit V1 and micro:bit V2
+
+A tool which can easily create a .hex file that will support all micro:bit variants can be found at:
+
+[micro:bit Universal Hex Creator](https://tech.microbit.org/software/universal-hex-creator/)
+
+There is more information about the .HEX file format here:
+
+[.HEX file format](https://tech.microbit.org/software/hex-format/)
+
 ### License
 
 This software is under the MIT open source license.
