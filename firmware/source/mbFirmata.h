@@ -61,6 +61,8 @@ SOFTWARE.
 #define MB_SET_TOUCH_MODE		0x06
 #define MB_DISPLAY_ENABLE		0x07
 // 0x08-0x0C reserved for additional micro:bit commands
+// Placeholder pin for compass calibration
+#define MB_COMPASS_CALIBRATE    0x08
 #define MB_REPORT_EVENT			0x0D
 #define MB_DEBUG_STRING			0x0E
 #define MB_EXTENDED_SYSEX		0x0F // can be used to add 128 additional micro:bit commands
