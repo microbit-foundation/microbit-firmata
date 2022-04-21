@@ -45,6 +45,7 @@ class MicrobitFirmataClient {
 		this.boardVersion = '';
 		this.firmataVersion = '';
 		this.firmwareVersion = '';
+		this.firmwareVersionNumber = 257; //1.1
 
 		this.buttonAPressed = false;
 		this.buttonBPressed = false;
@@ -58,6 +59,8 @@ class MicrobitFirmataClient {
 		// statistics:
 		this.analogUpdateCount = 0;
 		this.channelUpdateCounts = new Array(16).fill(0);
+
+        this.updateEventIDs();
 	}
 
 	addConstants() {
@@ -109,6 +112,23 @@ class MicrobitFirmataClient {
 		this.INPUT_PULLDOWN				= 0x0F; // micro:bit extension; not defined by Firmata
 	}
 
+	updateEventIDs() {
+		// These IDs changed between firmware 1.0 (DAL <= 2.1.1) and 1.1 (DAL >= 2.2.0-rc6 and CODAL)
+		if ( this.firmwareVersionNumber >= 257) { // v1.1+
+			this.MICROBIT_ID_DISPLAY = 7;
+			this.MICROBIT_ID_GESTURE = 13;
+			this.MICROBIT_ID_IO_P0   = 100;
+			this.MICROBIT_ID_IO_P1   = 101;
+			this.MICROBIT_ID_IO_P2   = 102;
+		} else {
+			this.MICROBIT_ID_DISPLAY = 6;
+			this.MICROBIT_ID_GESTURE = 27;
+			this.MICROBIT_ID_IO_P0   = 7;
+			this.MICROBIT_ID_IO_P1   = 8;
+			this.MICROBIT_ID_IO_P2   = 9;
+        }
+	}
+
 	// Connecting/Disconnecting
 
 	connect() {
@@ -118,7 +138,7 @@ class MicrobitFirmataClient {
 		.then((ports) => {
 			for (var i = 0; i < ports.length; i++) {
 				var p = ports[i];
-				if ((p.vendorId == '0d28') && (p.productId == '0204')) {
+				if ((p.vendorId == '0d28' || p.vendorId == '0D28') && (p.productId == '0204')) {
 					return p.comName;
 				}
 			}
@@ -183,6 +203,8 @@ class MicrobitFirmataClient {
 		var id = usbSerialNumber.slice(0, 4);
 		if ('9900' == id) return '1.3';
 		if ('9901' == id) return '1.5';
+		if ('9903' == id) return '2.0';
+		if ('9904' == id) return '2.0';
 		return 'unrecognized board';
 	}
 
@@ -298,7 +320,9 @@ class MicrobitFirmataClient {
 		}
 		var firmwareName = new TextDecoder().decode(Buffer.from(utf8Bytes));
 		this.firmwareVersion = firmwareName + ' ' + major + '.' + minor;
-	}
+		this.firmwareVersionNumber  = 256 * major + minor;
+		this.updateEventIDs();
+}
 
 	receivedDigitalUpdate(chan, pinMask) {
 		var pinNum = 8 * chan;
@@ -326,7 +350,6 @@ class MicrobitFirmataClient {
 		const MICROBIT_BUTTON_EVT_DOWN = 1;
 		const MICROBIT_BUTTON_EVT_UP = 2;
 
-		const MICROBIT_ID_DISPLAY = 6;
 		const MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE = 1;
 
 		var sourceID =
@@ -346,7 +369,7 @@ class MicrobitFirmataClient {
 			if (eventID == MICROBIT_BUTTON_EVT_DOWN) this.buttonBPressed = true;
 			if (eventID == MICROBIT_BUTTON_EVT_UP) this.buttonBPressed = false;
 		}
-		if ((sourceID == MICROBIT_ID_DISPLAY) &&
+		if ((sourceID == this.MICROBIT_ID_DISPLAY) &&
 			(eventID == MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE)) {
 				this.isScrolling = false;
 		}

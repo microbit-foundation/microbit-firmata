@@ -107,6 +107,8 @@ BBC micro:bit.
 However, if you'd like to extend or improve the firmware,
 then building it will be the first step.
 
+### Building the micro:bit V1 firmware from source
+
 Building the firmware is done with Yotta, and instructions for setting up your
 environment can be found at:
 
@@ -126,6 +128,38 @@ The compiled firmware will be at:
 Drag this file to your micro:bit's USB drive to install it.
 
 You can use the test suite to confirm that it works.
+
+### Building the micro:bit V2 firmware from source
+
+Building the firmware is done with the CODAL build system, and instructions for installing the pre-requisite tools can be found at:
+
+[microbit-v2-samples](https://github.com/lancaster-university/microbit-v2-samples)
+
+Once you have verified your build toolchain works by building the `microbit-v2-samples` example,
+you can build the firmware as follows:
+
+	cd microbit-firmata
+	git submodule update --init
+	cd firmware
+	python buildv2.py
+
+The compiled firmware will be at:
+
+	../microbit-v2-samples/MICROBIT.hex
+
+Drag this file to your micro:bit's USB drive to install it.
+
+You can use the test suite to confirm that it works.
+
+### Creating a universal hex for micro:bit V1 and micro:bit V2
+
+A tool which can easily create a .hex file that will support all micro:bit variants can be found at:
+
+[micro:bit Universal Hex Creator](https://tech.microbit.org/software/universal-hex-creator/)
+
+There is more information about the .HEX file format here:
+
+[.HEX file format](https://tech.microbit.org/software/hex-format/)
 
 ### License
 
