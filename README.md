@@ -40,7 +40,9 @@ of Node.js and npm, the Node package manager. You can get those from
 
 You will also need the Node "serialport" package. Get that by typing:
 
-	npm install serialport
+	npm install serialport@8.0.5
+
+> Note: This library uses calls from before the breaking changes introduced in the newer versions of serialport, and still needs to be updated.
 
 Now you can run the test suite by typing the following:
 

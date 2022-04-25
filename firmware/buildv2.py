@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # MIT License
 # 
@@ -81,7 +81,7 @@ fileutils_copytree(SOURCE, V2SOURCE);
 # change directory and run the build
 
 os.chdir(V2ROOT)
-subprocess.call(["python", "build.py"])
+subprocess.call(["python3", "build.py"])
 os.chdir(BACK)
 
 #restore original source folder

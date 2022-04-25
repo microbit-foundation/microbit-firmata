@@ -95,9 +95,10 @@ class MicrobitFirmataClient {
 		this.MB_SCROLL_INTEGER			= 0x05
 		this.MB_SET_TOUCH_MODE			= 0x06
 		this.MB_DISPLAY_ENABLE			= 0x07
+		this.MB_COMPASS_CALIBRATE       = 0x08
+
 		// 0x08-0x0C reserved for additional micro:bit messages
-		// Placeholder pin for compass calibration
-		this.MB_COMPASS_CALIBRATE = 0x08
+
 		this.MB_REPORT_EVENT			= 0x0D
 		this.MB_DEBUG_STRING			= 0x0E
 		this.MB_EXTENDED_SYSEX			= 0x0F; // allow for 128 additional micro:bit messages
@@ -518,8 +519,10 @@ class MicrobitFirmataClient {
 	}
 
 	compassCalibration() {
-    this.myPort.write([this.SYSEX_START, this.MB_COMPASS_CALIBRATE, this.SYSEX_END]);
-  }
+		// Request that the micro:bit perform a compass calibration cycle
+		
+    	this.myPort.write([this.SYSEX_START, this.MB_COMPASS_CALIBRATE, this.SYSEX_END]);
+  	}
 
 	enableLightSensor() {
 		// Enable the light sensor.

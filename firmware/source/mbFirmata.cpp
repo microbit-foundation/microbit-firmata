@@ -337,9 +337,8 @@ static void systemReset() {
 	samplingInterval = 100;
 }
 
-// Placeholder function to trigger the compass calibration
 static void calibrateCompass() {
-	// compass.calibrate();
+	compass.calibrate();
 }
 
 // Pin Commands
