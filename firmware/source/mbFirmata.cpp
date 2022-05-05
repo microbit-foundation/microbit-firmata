@@ -337,6 +337,10 @@ static void systemReset() {
 	samplingInterval = 100;
 }
 
+static void calibrateCompass() {
+	compass.calibrate();
+}
+
 // Pin Commands
 
 static void reportAnalogMapping() {
@@ -662,6 +666,9 @@ static void dispatchSysexCommand(int sysexStart, int argBytes) {
 		break;
 	case SAMPLING_INTERVAL:
 		setSamplingInterval((inbuf[sysexStart + 2] << 7) | inbuf[sysexStart + 1]);
+		break;
+	case MB_COMPASS_CALIBRATE:
+		calibrateCompass();
 		break;
 	}
 }

@@ -238,6 +238,8 @@ class Test5 {
 		}
 		mb.clearChannelData();
 
+		mb.compassCalibration();
+
 		clearScreen();
 		moveCursorTo(18, 0);
 		console.log('Analog streaming test (light sensor enabled)');
