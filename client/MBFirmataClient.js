@@ -185,6 +185,18 @@ class MicrobitFirmataClient {
 			return null;
 		})
 	}
+	
+	isConnected() {
+		// Return true or false if port connected
+
+		if (this.myPort) {
+			console.log("Is Connected True", this.myPort.path);
+			return true;
+		} else {
+			console.log("Is Connected False", this.myPort.path);
+			return false;
+		}
+	}
 
 	disconnect() {
 		// Close and discard the serial port.
