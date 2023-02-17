@@ -1,5 +1,5 @@
 {
-  "name": "mbFirmata",
+  "name": "mbfirmata",
   "version": "1.0.0",
   "description": "The micro:bit runtime common abstraction with examples.",
   "license": "MIT",
