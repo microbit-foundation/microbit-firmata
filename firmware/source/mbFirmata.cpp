@@ -23,11 +23,146 @@ SOFTWARE.
 */
 
 #include <MicroBit.h>
-#include <mbed.h>
+
+#include <cstdio>
 #include <ble.h>
+
 #include "mbFirmata.h"
 
+#ifndef MICROBIT_CODAL
+#ifdef CODAL_CONFIG_H
+#define MICROBIT_CODAL 1
+#else
+#define MICROBIT_CODAL 0
+#endif
+#endif
+
+
+#ifndef FIRMATA_USE_UBIT
+#define FIRMATA_USE_UBIT 0
+#endif
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+#if MICROBIT_CODAL && FIRMATA_USE_UBIT
+
+// CODAL Components
+
+MicroBit uBit;
+
+NRF52Serial             &serial         = uBit.serial;
+MicroBitIO              &io             = uBit.io;
+MicroBitDisplay         &display        = uBit.display;
+Accelerometer           &accelerometer  = uBit.accelerometer;
+Compass                 &compass        = uBit.compass;
+MicroBitThermometer     &thermometer    = uBit.thermometer;
+MessageBus              &messageBus     = uBit.messageBus;
+
+void device_init() { }
+
+#endif // MICROBIT_CODAL && FIRMATA_USE_UBIT
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+#if MICROBIT_CODAL && !FIRMATA_USE_UBIT
+
+//
+// Matrix layout model for LED Matrix
+//
+static const MatrixPoint ledMatrixPositions[5*5] =
+{
+	{0,0},{0,1},{0,2},{0,3},{0,4},
+	{1,0},{1,1},{1,2},{1,3},{1,4},
+	{2,0},{2,1},{2,2},{2,3},{2,4},
+	{3,0},{3,1},{3,2},{3,3},{3,4},
+	{4,0},{4,1},{4,2},{4,3},{4,4}
+};
+
+NRFLowLevelTimer          systemTimer(NRF_TIMER1, TIMER1_IRQn);
+NRFLowLevelTimer          adcTimer(NRF_TIMER2, TIMER2_IRQn);
+NRFLowLevelTimer          capTouchTimer(NRF_TIMER3, TIMER3_IRQn);
+Timer                     timer(systemTimer);
+MessageBus                messageBus;
+NRF52ADC                  adc(adcTimer, 91);
+NRF52TouchSensor          touchSensor(capTouchTimer);
+MicroBitIO                io(adc, touchSensor);
+NRF52Serial               serial(io.usbTx, io.usbRx, NRF_UARTE0);
+MicroBitI2C               _i2c(io.sda, io.scl);
+NRF52Pin*                 ledRowPins[5] = {&io.row1, &io.row2, &io.row3, &io.row4, &io.row5};
+NRF52Pin*                 ledColPins[5] = {&io.col1, &io.col2, &io.col3, &io.col4, &io.col5};
+const MatrixMap           ledMatrixMap  = { 5, 5, 5, 5, (Pin**)ledRowPins, (Pin**)ledColPins, ledMatrixPositions};
+MicroBitDisplay           display(ledMatrixMap);
+Button                    buttonA(io.P5, DEVICE_ID_BUTTON_A, DEVICE_BUTTON_ALL_EVENTS, ACTIVE_LOW);
+Button                    buttonB(io.P11, DEVICE_ID_BUTTON_B, DEVICE_BUTTON_ALL_EVENTS, ACTIVE_LOW);
+MicroBitThermometer       thermometer;
+Accelerometer&            accelerometer(MicroBitAccelerometer::autoDetect(_i2c));
+Compass&                  compass(MicroBitCompass::autoDetect(_i2c));
+
+void device_init()
+{ 
+	// From MicroBit::MicroBit()
+
+	// Add pullup resisitor to IRQ line (it's floating ACTIVE LO)
+	io.irq1.getDigitalValue();
+	io.irq1.setPull(PullMode::Up);
+	io.irq1.setActiveLo();
+
+	_i2c.setFrequency(400000);
+
+	// Bring up our display pins as high drive.
+	for (NRF52Pin *p : ledRowPins)
+		p->setHighDrive(true);
+
+	for (NRF52Pin *p : ledColPins)
+		p->setHighDrive(true);
+}
+
+#endif //MICROBIT_CODAL && !FIRMATA_USE_UBIT
+
+////////////////////////////////////////////////////////////////
+#if MICROBIT_CODAL
+
+static uint32_t now() { return system_timer_current_time(); }
+
+#define DAL_VERSION DEVICE_DAL_VERSION
+
+#define MBED_LIBRARY_VERSION 0
+
+#define PullUp    PullMode::None
+#define PullDown  PullMode::Down
+#define PullNone  PullMode::Up
+
+void serial_setBaud(int baudrate) { serial.setBaud(baudrate); }
+
+static void analogDisable() { }
+
+#endif  // MICROBIT_CODAL
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+#if !MICROBIT_CODAL && FIRMATA_USE_UBIT
+
 // DAL Components
+
+#include <mbed.h>
+
+MicroBit uBit;
+
+MicroBitSerial          &serial         = uBit.serial;
+MicroBitIO              &io             = uBit.io;
+MicroBitDisplay         &display        = uBit.display;
+MicroBitAccelerometer   &accelerometer  = uBit.accelerometer;
+MicroBitCompass         &compass        = uBit.compass;
+MicroBitThermometer     &thermometer    = uBit.thermometer;
+MicroBitMessageBus      &messageBus     = uBit.messageBus;
+
+void device_init() { }
+
+#endif  // !MICROBIT_CODAL && FIRMATA_USE_UBIT
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+#if !MICROBIT_CODAL && !FIRMATA_USE_UBIT
 
 // The DAL scheduler imposes a minimum sampling interval of 5 milliseconds (even if it set to
 // a lower value), limiting sensor sampling to a maximum of 200 samples/second. Without the
@@ -55,6 +190,45 @@ MicroBitIO io(
 	MICROBIT_PIN_P8, MICROBIT_PIN_P9, MICROBIT_PIN_P10, MICROBIT_PIN_P11,
 	MICROBIT_PIN_P12, MICROBIT_PIN_P13, MICROBIT_PIN_P14, MICROBIT_PIN_P15,
 	MICROBIT_PIN_P16, /* 17-18 */ MICROBIT_PIN_P19, MICROBIT_PIN_P20);
+
+void device_init() { }
+
+#endif // !MICROBIT_CODAL && !FIRMATA_USE_UBIT
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+#if !MICROBIT_CODAL
+
+#define DAL_VERSION microbit_dal_version()
+
+static uint32_t now() { return us_ticker_read() / 1000L; }
+
+void serial_setBaud(int baudrate) { serial.baud(baudrate); }
+
+static void analogDisable() {
+	/* Comment from DAL MicroBitLightSensor.cpp:
+	*
+	* Forcibly disable AnalogIn, otherwise it will remain in possession of the GPIO channel
+	* it is using, meaning that the display will not be able to use a channel (COL).
+	*
+	* This is required as per PAN 3, details of which can be found here:
+	*
+	* https://www.nordicsemi.com/eng/nordic/download_resource/24634/5/88440387
+	*/
+
+	NRF_ADC->ENABLE = ADC_ENABLE_ENABLE_Disabled;
+	NRF_ADC->CONFIG =
+		(ADC_CONFIG_RES_8bit		<< ADC_CONFIG_RES_Pos) |
+		(ADC_CONFIG_INPSEL_SupplyTwoThirdsPrescaling << ADC_CONFIG_INPSEL_Pos) |
+		(ADC_CONFIG_REFSEL_VBG		<< ADC_CONFIG_REFSEL_Pos) |
+		(ADC_CONFIG_PSEL_Disabled	<< ADC_CONFIG_PSEL_Pos) |
+		(ADC_CONFIG_EXTREFSEL_None	<< ADC_CONFIG_EXTREFSEL_Pos);
+}
+
+#endif // !MICROBIT_CODAL
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
 
 // Variables
 
@@ -105,8 +279,6 @@ static void send3Bytes(uint8_t b1, uint8_t b2, uint8_t b3) {
 	serial.sendChar(b3, ASYNC);
 }
 
-static uint32_t now() { return us_ticker_read() / 1000L; }
-
 // Debugging
 
 static void sendStringData(const char *s) {
@@ -140,14 +312,16 @@ static void reportFirmwareVersion() {
 	// The softdevice version can be found by looking up the firmward ID (FWID) here:
 	// https://devzone.nordicsemi.com/f/nordic-q-a/1171/how-do-i-access-softdevice-version-string
 
-	int major = 1;
-	int minor = 0;
+	// Some Event IDs changed between firmware 1.0 (DAL <= 2.1.1) and 1.1 (DAL >= 2.2.0-rc6 and CODAL)
+	// MICROBIT_ID_DISPLAY/GESTURE/IO_P0/IO_P1/IO_P2
+	int major = 1; 
+	int minor = 1;
 	char s[100];
 
 	ble_version_t bleInfo;
 	sd_ble_version_get(&bleInfo);
 	sprintf(s, "[based on DAL %s; mbed %d; softdeviceFWID %d] micro:bit Firmata",
-		microbit_dal_version(), MBED_LIBRARY_VERSION, bleInfo.subversion_number);
+		DAL_VERSION, MBED_LIBRARY_VERSION, bleInfo.subversion_number);
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
 	send2Bytes(major, minor); // firmware version (vs. Firmata protocol version)
@@ -161,6 +335,10 @@ static void systemReset() {
 	memset(isStreamingChannel, false, sizeof(isStreamingChannel));
 	memset(isStreamingPort, false, sizeof(isStreamingPort));
 	samplingInterval = 100;
+}
+
+static void calibrateCompass() {
+	compass.calibrate();
 }
 
 // Pin Commands
@@ -322,26 +500,6 @@ static void setSamplingInterval(int msecs) {
 
 // Display Commands
 
-static void analogDisable() {
-	/* Comment from DAL MicroBitLightSensor.cpp:
-	*
-	* Forcibly disable AnalogIn, otherwise it will remain in possession of the GPIO channel
-	* it is using, meaning that the display will not be able to use a channel (COL).
-	*
-	* This is required as per PAN 3, details of which can be found here:
-	*
-	* https://www.nordicsemi.com/eng/nordic/download_resource/24634/5/88440387
-	*/
-
-	NRF_ADC->ENABLE = ADC_ENABLE_ENABLE_Disabled;
-	NRF_ADC->CONFIG =
-		(ADC_CONFIG_RES_8bit		<< ADC_CONFIG_RES_Pos) |
-		(ADC_CONFIG_INPSEL_SupplyTwoThirdsPrescaling << ADC_CONFIG_INPSEL_Pos) |
-		(ADC_CONFIG_REFSEL_VBG		<< ADC_CONFIG_REFSEL_Pos) |
-		(ADC_CONFIG_PSEL_Disabled	<< ADC_CONFIG_PSEL_Pos) |
-		(ADC_CONFIG_EXTREFSEL_None	<< ADC_CONFIG_EXTREFSEL_Pos);
-}
-
 static void display_clear() {
 	display.stopAnimation();
 	display.clear();
@@ -381,8 +539,8 @@ static void sendScrollDoneEvent() {
 	// Used to send an animation_complete event (i.e. scrolling done)
 	// when a scrolling operation is invoked when the display is disabled.
 
-	const int source_id = 6; // display
-	const int event_id = 1; // animation_complete
+	const int source_id = MICROBIT_ID_DISPLAY; // display
+	const int event_id = MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE; // animation_complete
 	send2Bytes(SYSEX_START, MB_REPORT_EVENT);
 	send3Bytes(source_id & 0x7F, (source_id >> 7) & 0x7F, (source_id >> 14) & 0x7F);
 	send3Bytes(event_id & 0x7F, (event_id >> 7) & 0x7F, (event_id >> 14) & 0x7F);
@@ -508,6 +666,9 @@ static void dispatchSysexCommand(int sysexStart, int argBytes) {
 		break;
 	case SAMPLING_INTERVAL:
 		setSamplingInterval((inbuf[sysexStart + 2] << 7) | inbuf[sysexStart + 1]);
+		break;
+	case MB_COMPASS_CALIBRATE:
+		calibrateCompass();
 		break;
 	}
 }
@@ -693,9 +854,9 @@ static void registerEventListeners() {
 	messageBus.listen(MICROBIT_ID_GESTURE, MICROBIT_EVT_ANY, onEvent);
 
 	// touch pin events
-	messageBus.listen(7, MICROBIT_EVT_ANY, onEvent);
-	messageBus.listen(8, MICROBIT_EVT_ANY, onEvent);
-	messageBus.listen(9, MICROBIT_EVT_ANY, onEvent);
+	messageBus.listen(MICROBIT_ID_IO_P0, MICROBIT_EVT_ANY, onEvent);
+	messageBus.listen(MICROBIT_ID_IO_P1, MICROBIT_EVT_ANY, onEvent);
+	messageBus.listen(MICROBIT_ID_IO_P2, MICROBIT_EVT_ANY, onEvent);
 
 	// scrolling/animation complete event
 	messageBus.listen(MICROBIT_ID_DISPLAY, MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE, onEvent);
@@ -704,7 +865,8 @@ static void registerEventListeners() {
 // Entry Points
 
 void initFirmata() {
-	serial.baud(57600);
+	device_init();
+	serial_setBaud(57600);
 	serial.setRxBufferSize(249);
 	serial.setTxBufferSize(249);
 

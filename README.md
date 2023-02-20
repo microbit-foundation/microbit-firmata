@@ -40,7 +40,9 @@ of Node.js and npm, the Node package manager. You can get those from
 
 You will also need the Node "serialport" package. Get that by typing:
 
-	npm install serialport
+	npm install serialport@8.0.5
+
+> Note: This library uses calls from before the breaking changes introduced in the newer versions of serialport, and still needs to be updated.
 
 Now you can run the test suite by typing the following:
 
@@ -107,6 +109,8 @@ BBC micro:bit.
 However, if you'd like to extend or improve the firmware,
 then building it will be the first step.
 
+### Building the micro:bit V1 firmware from source
+
 Building the firmware is done with Yotta, and instructions for setting up your
 environment can be found at:
 
@@ -116,7 +120,7 @@ Once you have verified your build toolchain works by building the `microbit-samp
 you can build the firmware as follows:
 
 	cd firmware
-	yt target bbc-microbit-classic-gcc
+	yt target bbc-microbit-classic-gcc@https://github.com/lancaster-university/yotta-target-bbc-microbit-classic-gcc
 	yt build
 
 The compiled firmware will be at:
@@ -127,8 +131,44 @@ Drag this file to your micro:bit's USB drive to install it.
 
 You can use the test suite to confirm that it works.
 
+### Building the micro:bit V2 firmware from source
+
+Building the firmware is done with the CODAL build system, and instructions for installing the pre-requisite tools can be found at:
+
+[microbit-v2-samples](https://github.com/lancaster-university/microbit-v2-samples)
+
+Once you have verified your build toolchain works by building the `microbit-v2-samples` example,
+you can build the firmware as follows:
+
+	cd microbit-firmata
+	git submodule update --init
+	cd firmware
+	python buildv2.py
+
+The compiled firmware will be at:
+
+	../microbit-v2-samples/MICROBIT.hex
+
+Drag this file to your micro:bit's USB drive to install it.
+
+You can use the test suite to confirm that it works.
+
+### Creating a universal hex for micro:bit V1 and micro:bit V2
+
+A tool which can easily create a .hex file that will support all micro:bit variants can be found at:
+
+[micro:bit Universal Hex Creator](https://tech.microbit.org/software/universal-hex-creator/)
+
+There is more information about the .HEX file format here:
+
+[.HEX file format](https://tech.microbit.org/software/hex-format/)
+
 ### License
 
 This software is under the MIT open source license.
 
 SPDX-License-Identifier: MIT
+
+### Code of Conduct
+
+Trust, partnership, simplicity and passion are our core values we live and breathe in our daily work life and within our projects. Our open-source projects are no exception. We have an active community which spans the globe and we welcome and encourage participation and contributions to our projects by everyone. We work to foster a positive, open, inclusive and supportive environment and trust that our community respects the micro:bit code of conduct. Please see our [code of conduct](https://microbit.org/safeguarding/) which outlines our expectations for all those that participate in our community and details on how to report any concerns and what would happen should breaches occur.

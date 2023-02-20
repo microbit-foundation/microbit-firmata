@@ -32,11 +32,21 @@ SOFTWARE.
  * Clients can listen for DAL events, digital pin changes, or analog channel updates.
  */
 
-const serialport = require('serialport');
-const {TextEncoder, TextDecoder} = require('util');
+let serialport;
+let TextEncoder, TextDecoder;
+
+// If running outside of the browser, create the TextEncoder/TextDecoder
+if (typeof window === 'undefined' || !window.TextEncoder) {
+  TextEncoder = require('util').TextEncoder;
+  TextDecoder = require('util').TextDecoder;
+} else {
+  TextEncoder = window.TextEncoder;
+  TextDecoder = window.TextDecoder;
+}
 
 class MicrobitFirmataClient {
-	constructor() {
+	constructor(port) {
+    serialport = port ? port : require('serialport');
 		this.addConstants();
 		this.myPort = null;
 		this.inbuf = new Uint8Array(1000);
@@ -45,6 +55,7 @@ class MicrobitFirmataClient {
 		this.boardVersion = '';
 		this.firmataVersion = '';
 		this.firmwareVersion = '';
+		this.firmwareVersionNumber = 257; //1.1
 
 		this.buttonAPressed = false;
 		this.buttonBPressed = false;
@@ -58,6 +69,8 @@ class MicrobitFirmataClient {
 		// statistics:
 		this.analogUpdateCount = 0;
 		this.channelUpdateCounts = new Array(16).fill(0);
+
+        this.updateEventIDs();
 	}
 
 	addConstants() {
@@ -92,7 +105,10 @@ class MicrobitFirmataClient {
 		this.MB_SCROLL_INTEGER			= 0x05
 		this.MB_SET_TOUCH_MODE			= 0x06
 		this.MB_DISPLAY_ENABLE			= 0x07
+		this.MB_COMPASS_CALIBRATE       = 0x08
+
 		// 0x08-0x0C reserved for additional micro:bit messages
+
 		this.MB_REPORT_EVENT			= 0x0D
 		this.MB_DEBUG_STRING			= 0x0E
 		this.MB_EXTENDED_SYSEX			= 0x0F; // allow for 128 additional micro:bit messages
@@ -107,8 +123,28 @@ class MicrobitFirmataClient {
 		this.INPUT_PULLDOWN				= 0x0F; // micro:bit extension; not defined by Firmata
 	}
 
+	updateEventIDs() {
+		// These IDs changed between firmware 1.0 (DAL <= 2.1.1) and 1.1 (DAL >= 2.2.0-rc6 and CODAL)
+		if ( this.firmwareVersionNumber >= 257) { // v1.1+
+			this.MICROBIT_ID_DISPLAY = 7;
+			this.MICROBIT_ID_GESTURE = 13;
+			this.MICROBIT_ID_IO_P0   = 100;
+			this.MICROBIT_ID_IO_P1   = 101;
+			this.MICROBIT_ID_IO_P2   = 102;
+		} else {
+			this.MICROBIT_ID_DISPLAY = 6;
+			this.MICROBIT_ID_GESTURE = 27;
+			this.MICROBIT_ID_IO_P0   = 7;
+			this.MICROBIT_ID_IO_P1   = 8;
+			this.MICROBIT_ID_IO_P2   = 9;
+        }
+	}
+
 	// Connecting/Disconnecting
 
+  /**
+   * @returns {Promise} when port has been opened or if no port found
+   */
 	connect() {
 		// Search serial port list for a connected micro:bit and, if found, open that port.
 
@@ -130,11 +166,15 @@ class MicrobitFirmataClient {
 				return this.setSerialPort(new serialport(portName, { baudRate: 57600 }));
 			} else {
 				console.log("No micro:bit found; is your board plugged in?");
+				return null;
 			}
 			return null
 		});
 	}
 
+  /**
+   * @returns {Promise} when board version is set
+   */
 	setSerialPort(port) {
 		// Use the given port. Assume the port has been opened by the caller.
 
@@ -163,6 +203,18 @@ class MicrobitFirmataClient {
 			return this;
 		})
 	}
+	
+	isConnected() {
+		// Return true or false if port connected
+
+		if (this.myPort) {
+			console.log("Is Connected True", this.myPort.path);
+			return true;
+		} else {
+			console.log("Is Connected False", this.myPort.path);
+			return false;
+		}
+	}
 
 	disconnect() {
 		// Close and discard the serial port.
@@ -182,6 +234,8 @@ class MicrobitFirmataClient {
 		var id = usbSerialNumber.slice(0, 4);
 		if ('9900' == id) return '1.3';
 		if ('9901' == id) return '1.5';
+		if ('9903' == id) return '2.0';
+		if ('9904' == id) return '2.0';
 		return 'unrecognized board';
 	}
 
@@ -297,7 +351,9 @@ class MicrobitFirmataClient {
 		}
 		var firmwareName = new TextDecoder().decode(Buffer.from(utf8Bytes));
 		this.firmwareVersion = firmwareName + ' ' + major + '.' + minor;
-	}
+		this.firmwareVersionNumber  = 256 * major + minor;
+		this.updateEventIDs();
+}
 
 	receivedDigitalUpdate(chan, pinMask) {
 		var pinNum = 8 * chan;
@@ -325,7 +381,6 @@ class MicrobitFirmataClient {
 		const MICROBIT_BUTTON_EVT_DOWN = 1;
 		const MICROBIT_BUTTON_EVT_UP = 2;
 
-		const MICROBIT_ID_DISPLAY = 6;
 		const MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE = 1;
 
 		var sourceID =
@@ -345,7 +400,7 @@ class MicrobitFirmataClient {
 			if (eventID == MICROBIT_BUTTON_EVT_DOWN) this.buttonBPressed = true;
 			if (eventID == MICROBIT_BUTTON_EVT_UP) this.buttonBPressed = false;
 		}
-		if ((sourceID == MICROBIT_ID_DISPLAY) &&
+		if ((sourceID == this.MICROBIT_ID_DISPLAY) &&
 			(eventID == MICROBIT_DISPLAY_EVT_ANIMATION_COMPLETE)) {
 				this.isScrolling = false;
 		}
@@ -492,6 +547,12 @@ class MicrobitFirmataClient {
 			samplingMSecs & 0x7F, (samplingMSecs >> 7) & 0x7F,
 			this.SYSEX_END]);
 	}
+
+	compassCalibration() {
+		// Request that the micro:bit perform a compass calibration cycle
+		
+    	this.myPort.write([this.SYSEX_START, this.MB_COMPASS_CALIBRATE, this.SYSEX_END]);
+  	}
 
 	enableLightSensor() {
 		// Enable the light sensor.

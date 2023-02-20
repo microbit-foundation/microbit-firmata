@@ -141,6 +141,7 @@ class ConnectivityTest {
 class Test2 {
 	constructor() {
 		console.log('String scroll test...');
+		mb.enableDisplay(true);
 		mb.scrollString('abc', 80);
 	}
 	step() {
@@ -151,6 +152,7 @@ class Test2 {
 class Test3 {
 	constructor() {
 		console.log('Number scroll test...');
+		mb.enableDisplay(true);
 		mb.scrollInteger(-123, 80);
 	}
 	step() {
@@ -235,6 +237,8 @@ class Test5 {
 			mb.streamAnalogChannel(chan);
 		}
 		mb.clearChannelData();
+
+		mb.compassCalibration();
 
 		clearScreen();
 		moveCursorTo(18, 0);
@@ -400,7 +404,7 @@ class Test8 {
 		return '';
 	}
 	gotEvent(sourceID, eventID) {
-		if (27 == sourceID) {
+		if (mb.MICROBIT_ID_GESTURE == sourceID) {
 			this.events[eventID]++;
 			this.lastEvent = eventID;
 			this.showGestureEvents();
