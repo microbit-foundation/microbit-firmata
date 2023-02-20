@@ -152,7 +152,7 @@ class MicrobitFirmataClient {
 		.then((ports) => {
 			for (var i = 0; i < ports.length; i++) {
 				var p = ports[i];
-				if ((p.vendorId == '0d28' || p.vendorId == '0D28') && (p.productId == '0204')) {
+				if ((p.vendorId == "0d28" || p.vendorId == "0D28") && (p.productId == '0204')) {
 					return p.comName;
 				}
 			}
@@ -168,6 +168,7 @@ class MicrobitFirmataClient {
 				console.log("No micro:bit found; is your board plugged in?");
 				return null;
 			}
+			return null
 		});
 	}
 
@@ -199,7 +200,7 @@ class MicrobitFirmataClient {
 					this.boardVersion = this.boardVersionFromSerialNumber(p.serialNumber);
 				}
 			}
-			return null;
+			return this;
 		})
 	}
 	
