@@ -13,6 +13,6 @@
         "MICROBIT_BLE_ENABLED" : 0,
         "MICROBIT_BLE_PAIRING_MODE": 0,
         "CONFIG_MICROBIT_ERASE_USER_DATA_ON_REFLASH": 1,
-        "DEVICE_BLE": 0
+        "DEVICE_BLE": 1
     }
 }
