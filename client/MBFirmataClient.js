@@ -153,7 +153,7 @@ class MicrobitFirmataClient {
 			for (var i = 0; i < ports.length; i++) {
 				var p = ports[i];
 				if ((p.vendorId == "0d28" || p.vendorId == "0D28") && (p.productId == '0204')) {
-					return p.comName;
+					return p.path;
 				}
 			}
 			return null;
@@ -196,7 +196,7 @@ class MicrobitFirmataClient {
 		.then((ports) => {
 			for (var i = 0; i < ports.length; i++) {
 				var p = ports[i];
-				if ((p.comName == this.myPort.path)) {
+				if ((p.path == this.myPort.path)) {
 					this.boardVersion = this.boardVersionFromSerialNumber(p.serialNumber);
 				}
 			}
@@ -232,10 +232,14 @@ class MicrobitFirmataClient {
 		// The micro:bit board version can be determined from the USB device serial number.
 		// See https://support.microbit.org/support/solutions/articles/19000084312-micro-bit-motion-sensor-hardware-changes-for-editor-developers
 		var id = usbSerialNumber.slice(0, 4);
-		if ('9900' == id) return '1.3';
-		if ('9901' == id) return '1.5';
-		if ('9903' == id) return '2.0';
-		if ('9904' == id) return '2.0';
+		switch(id) {
+			case '9900': return '1.3';
+			case '9901': return '1.5';
+			case '9903': return '2.0';
+			case '9904': return '2.0';
+			case '9905': return '2.20';
+			case '9906': return '2.21';
+		}
 		return 'unrecognized board';
 	}
 
