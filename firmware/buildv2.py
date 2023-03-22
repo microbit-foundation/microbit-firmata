@@ -26,6 +26,8 @@ import os
 import stat
 import shutil
 import subprocess
+import os.path
+from os.path import join, isdir
 
 ################################################################
 # FILE UTILS
@@ -56,6 +58,22 @@ def fileutils_copytree(src,dst):
     if os.path.exists(src):
         shutil.copytree(src,dst)
 
+def getCodalVersion():
+    libVersions = []
+    cwd = os.getcwd()
+    libRoot = os.path.abspath( join( "..", "microbit-v2-samples", "libraries" ) )
+
+    for lib in [ "codal-microbit-v2" ]:
+        print( join( libRoot, lib ) )
+        os.chdir( join( libRoot, lib ) )
+        version = subprocess.getoutput( 'git describe --tags' )
+        if version.startswith('fatal:'):
+            version = subprocess.getoutput( 'git rev-parse --short HEAD' )
+        libVersions.append( f"{lib}={version}" )
+    
+    os.chdir( cwd )
+    return ";".join( libVersions )
+
 ################################################################
 # Build in sibling folder microbit-v2-samples:
 #   replace microbit-v2-samples/source with our source folder
@@ -73,18 +91,30 @@ BACK="../firmware"
 
 fileutils_rmtree(V2NOTSOURCE)
 fileutils_rename(V2SOURCE, V2NOTSOURCE)
+os.replace( join( V2ROOT, "codal.json" ), join( V2ROOT, "codal.json.bak" ) )
 
 # copy our source folder into place
 
 fileutils_copytree(SOURCE, V2SOURCE);
+shutil.copyfile( "codal.json", join( V2ROOT, "codal.json" ) )
 
-# change directory and run the build
+try:
+    # Update our versions header with the current configuration
+    with open(join( V2SOURCE, "versions.h" ), "a") as versionsHeader:
+        versionsHeader.write( f"#define CODAL_FIRMATA_VERSION_STRING \"{getCodalVersion()}\"" )
+        print( f"#define CODAL_FIRMATA_VERSION_STRING \"{getCodalVersion()}\"" )
+        versionsHeader.flush();
 
-os.chdir(V2ROOT)
-subprocess.call(["python3", "build.py"])
-os.chdir(BACK)
+    # change directory and run the build
+
+    os.chdir(V2ROOT)
+    subprocess.call(["python3", "build.py"])
+    os.chdir(BACK)
+except:
+    print( "Failed to build!" )
 
 #restore original source folder
 
 fileutils_rmtree(V2SOURCE)
 fileutils_rename(V2NOTSOURCE, V2SOURCE)
+os.replace( join( V2ROOT, "codal.json.bak" ), join( V2ROOT, "codal.json" ),  )

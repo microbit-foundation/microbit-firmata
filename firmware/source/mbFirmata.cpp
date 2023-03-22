@@ -28,6 +28,7 @@ SOFTWARE.
 #include <ble.h>
 
 #include "mbFirmata.h"
+#include "versions.h"
 
 #ifndef MICROBIT_CODAL
 #ifdef CODAL_CONFIG_H
@@ -312,16 +313,40 @@ static void reportFirmwareVersion() {
 	// The softdevice version can be found by looking up the firmward ID (FWID) here:
 	// https://devzone.nordicsemi.com/f/nordic-q-a/1171/how-do-i-access-softdevice-version-string
 
+	// Unfortunately, for v2 without bringing the entire bluetooth stack up, the calls to check
+	// softdevice seem to fail, so we're dropping back to using the SD_VARIANT_ID and friends in
+	// nrf_shm.h instead, as these give us similar resolution on API changes.
+
 	// Some Event IDs changed between firmware 1.0 (DAL <= 2.1.1) and 1.1 (DAL >= 2.2.0-rc6 and CODAL)
 	// MICROBIT_ID_DISPLAY/GESTURE/IO_P0/IO_P1/IO_P2
-	int major = 1; 
-	int minor = 1;
-	char s[100];
+	int major = FIRMATA_VERSION_MAJOR;
+	int minor = FIRMATA_VERSION_MINOR;
+	char s[256] = {0};
 
-	ble_version_t bleInfo;
-	sd_ble_version_get(&bleInfo);
-	sprintf(s, "[based on DAL %s; mbed %d; softdeviceFWID %d] micro:bit Firmata",
-		DAL_VERSION, MBED_LIBRARY_VERSION, bleInfo.subversion_number);
+	#if MICROBIT_CODAL==1
+		// Need to check both variables to support building against older versions of CODAL
+		#if SOFTDEVICE_PRESENT==1 || DEVICE_BLE==1
+			sprintf(s,
+				"[%s;softdeviceFWID=%d.%d.%d~%d] micro:bit Firmata",
+				CODAL_FIRMATA_VERSION_STRING,
+				SD_MAJOR_VERSION,
+				SD_MINOR_VERSION,
+				SD_BUGFIX_VERSION,
+				SD_VARIANT_ID
+			);
+		#else
+			sprintf(s,
+				"[%s] micro:bit Firmata",
+				CODAL_FIRMATA_VERSION_STRING
+			);
+		#endif
+	#else
+		ble_version_t bleInfo;
+		sd_ble_version_get(&bleInfo);
+
+		sprintf(s, "[based on DAL %s; mbed %d; softdeviceFWID %d] micro:bit Firmata %d.%d",
+			DAL_VERSION, MBED_LIBRARY_VERSION, bleInfo.subversion_number, major, minor);
+	#endif
 
 	send2Bytes(SYSEX_START, REPORT_FIRMWARE);
 	send2Bytes(major, minor); // firmware version (vs. Firmata protocol version)
