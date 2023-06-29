@@ -49,6 +49,28 @@ Now you can run the test suite by typing the following:
 	cd client
 	node mbTests.js
 
+### Using Microbit Firmata as an NPM library
+
+Create a new package.json if you don't have one already by running `npm init` and following the prompts, then install this library
+as a dependency with:
+
+```
+npm install --save https://github.com/microbit-foundation/microbit-firmata.git
+```
+
+This should automatically pull any dependencies, including the serialport library.
+
+To use this in your application, simply `require()` the library and create a new MBFirmata control object:
+
+```
+const MBFirmata = require("microbit-firmata");
+
+const microbit = new MBFirmata();
+
+console.log( `Microbit version: ${microbit.boardVersion()}` );
+microbit.setDigitalOutput( 0, true );
+```
+
 ### Exploring the JavaScript Client
 
 You can explore the JavaScript client interactively from the Node command line.
