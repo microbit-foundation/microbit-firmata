@@ -20,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/microbit-foundation/microbit-firmata/issues"
   },
-  "homepage": "https://github.com/microbit-foundation/microbit-firmata#readme"
+  "homepage": "https://github.com/microbit-foundation/microbit-firmata#readme",
+  "dependencies": {
+    "serialport": "^8.0.5"
+  }
 }
