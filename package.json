@@ -1,0 +1,27 @@
+{
+  "name": "microbit-firmata",
+  "version": "1.3.0",
+  "description": "Firmata support for the Micro:bit",
+  "main": "client/MBFirmataClient.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/microbit-foundation/microbit-firmata.git"
+  },
+  "keywords": [
+    "micro:bit",
+    "microbit",
+    "firmata"
+  ],
+  "author": "Micro:bit Educational Foundation",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/microbit-foundation/microbit-firmata/issues"
+  },
+  "homepage": "https://github.com/microbit-foundation/microbit-firmata#readme",
+  "dependencies": {
+    "serialport": "^8.0.5"
+  }
+}
