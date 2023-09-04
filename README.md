@@ -55,10 +55,13 @@ Create a new package.json if you don't have one already by running `npm init` an
 as a dependency with:
 
 ```
-npm install --save https://github.com/microbit-foundation/microbit-firmata.git
+npm install --save https://github.com/microbit-foundation/microbit-firmata.git#v1.3.1
 ```
 
 This should automatically pull any dependencies, including the serialport library.
+
+While it is possible to _not_ specify a tag version, we **strongly** recommend that you do include one to keep the library version stable in your application.
+
 
 To use this in your application, simply `require()` the library and create a new MBFirmata control object:
 
